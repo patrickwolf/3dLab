@@ -99,3 +99,62 @@ The application uses **Three.js (r128)** for rendering, **Tailwind CSS** for UI 
 ### 9. State Management & Serialization
 * The state is not saved by serializing the massive Three.js object graph. Instead, `getSceneStateData()` creates a lightweight dictionary containing only: Geometry type, IsPolygon, Points Array, Position, Rotation (Quaternion), Scale, Color Hex, Opacity, Transparent flag, and Material type. 
 * This allows the state to remain tiny enough to be heavily compressed by LZ-String and passed safely through a URL Hash constraint.
+
+# 3D Shadow & Light Lab: Developer Lore & Debugging History
+
+This document preserves the "war stories" and highly specific fixes discovered during the development of the 3D Light Lab. It explains *why* certain non-obvious code exists.
+
+## 1. Web Browser Quirks & UI Fixes
+
+**The Iframe "Same-Origin" Trap**
+* **Bug:** Share links weren't loading when hosted on sites like `gisthost.github.io`.
+* **Reason:** Wrapper sites load projects inside hidden `iframes`. Browsers enforce a strict "Same-Origin Policy" that completely blocks an `iframe` from reading the address bar (`window.location.hash`) of its parent window.
+* **Fix:** We added a `try/catch` block that attempts to read `window.top.location.href`. If the browser blocks it via a security exception, it safely falls back to reading its own iframe URL, which is why the "Paste URL to Import" fallback was added.
+
+**URL Decompression Corruption (`+` vs ` `)**
+* **Bug:** Complex LZ-String compressed URLs would randomly fail to unpack.
+* **Reason:** Some web browsers aggressively strip out the `+` character in URL hashes and replace them with empty spaces ` `, which instantly corrupts Base64/LZ-String data.
+* **Fix:** The loader includes a mandatory cleanup step: `compressed.replace(/ /g, '+')` before attempting to decompress.
+
+**iOS Auto-Zooming Inputs**
+* **Bug:** Tapping the opacity slider or color picker on an iPhone would cause the whole screen to awkwardly zoom in, ruining the 3D app experience.
+* **Reason:** Apple iOS Safari automatically zooms into any `<input>` element if the text size is deemed too small.
+* **Fix:** `maximum-scale=1.0` was added to the `<meta name="viewport">` tag.
+
+**Keyboard Shortcut Hijacking**
+* **Bug:** The `Delete` key wouldn't work to delete objects if the user had just clicked a tool button (like "Move" or "Rotate").
+* **Reason:** A safety check was added to ignore the Delete key if the user was typing in an `<input>`. However, the tool modes are built using `<input type="radio">` buttons under the hood. 
+* **Fix:** The event listener had to be strictly narrowed to only ignore `active.tagName === 'TEXTAREA' || active.type === 'text'`.
+
+## 2. Three.js Engine Quirks
+
+**Opacity Snapping (The 70% Cutoff)**
+* **Bug:** Lowering the opacity slider wouldn't fade the object; it would remain solid until ~70%, then instantly snap out of existence.
+* **Reason:** In WebGL/Three.js, an object is either in the "Opaque Render Pass" or the "Transparent Render Pass". Lowering the opacity float value doesn't automatically move the object to the transparent pass.
+* **Fix:** The UI slider logic explicitly forces `object.material.transparent = true` and `object.material.depthWrite = false` the moment opacity drops below 1.0 (or immediately if the material is Glass).
+
+**The "Necromancer" Delete Bug**
+* **Bug:** Deleting a group of objects removed them from the screen, but interacting with the scene caused them to respawn as un-selectable ghosts.
+* **Reason:** The `Delete` function removed the objects from the 3D scene array. However, the subsequent step called `clearMultiSelect()`, which looked at what was in the selection memory and gracefully *re-added* those items back into the 3D scene to ungroup them.
+* **Fix:** The selection must be explicitly cleared/detached (`selectObject(null)`) *before* the `scene.remove(obj)` array deletion executes.
+
+**Peter Panning vs. Shadow Acne**
+* **Bug:** The spotlight was bleeding directly through the 100% opaque red plane, lighting objects behind it.
+* **Reason:** To prevent "Shadow Acne" (glitchy black pixels on surfaces), shadows use a `bias` to push the shadow slightly backward. Because our custom Planes have exactly *zero thickness*, pushing the shadow backward pushed it completely out the other side of the object.
+* **Fix:** The `shadow.bias` was reduced to a microscopic `-0.00005`, and `shadow.normalBias = 0.02` was added to fake surface thickness during the shadow map calculation.
+
+## 3. AI & REST API Integrations
+
+**LLM Markdown Wrapping**
+* **Bug:** The Gemini AI would occasionally crash the scene generator by returning invalid JSON.
+* **Reason:** Even when instructed to return raw JSON, Large Language Models will frequently format the output by wrapping it in markdown code blocks (e.g., ` ```json \n [...] \n ``` `), which breaks `JSON.parse()`.
+* **Fix:** A regex cleanup step `responseText.replace(/```json\n?/gi, '').replace(/```/g, '').trim()` strips formatting before parsing.
+
+**NoCodeBackend REST Structure**
+* The external database relies on specific payload formats. To preserve the structure in case of a server migration:
+* **Headers:** Requires `Authorization: Bearer <TOKEN>`
+* **Create/Write (`POST /create/keyval`):** Requires JSON body:
+  `{ keyname: "3dlab_xxx", jval: "{...}", createdon: "YYYY-MM-DD HH:MM:SS", createdby: "UserAgent string" }`
+* **Search/Read (`POST /search/keyval`):** Requires JSON body:
+  `{ keyname: "3dlab_xxx" }` 
+  *(Note: Search is used instead of direct `GET` to support non-integer alphanumeric custom GUIDs).*
