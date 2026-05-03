@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-    3D Shadow & Light Lab v1.0.0
+    3D Shadow & Light Lab v1.0.1
     Copyright (c) 2026 Patrick Wolf
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,7 +24,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <!-- Added maximum-scale=1.0 to prevent iOS from zooming in on UI clicks -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>3D Shadow & Light Lab</title>
     <!-- Tailwind CSS for UI styling -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -61,11 +62,11 @@
         👁️ Show Tools
     </button>
 
-    <!-- UI Overlay -->
-    <div id="main-ui" class="absolute top-4 left-4 w-96 max-h-[90vh] overflow-y-auto bg-gray-900 bg-opacity-85 text-white p-5 rounded-xl shadow-2xl backdrop-blur-md border border-gray-700 select-none z-10 transition-all">
+    <!-- UI Overlay: Made mobile responsive with right-4 and sm:w-96 -->
+    <div id="main-ui" class="absolute top-4 left-4 right-4 sm:right-auto sm:w-96 max-h-[90vh] overflow-y-auto bg-gray-900 bg-opacity-85 text-white p-5 rounded-xl shadow-2xl backdrop-blur-md border border-gray-700 select-none z-10 transition-all">
         <div class="flex justify-between items-start mb-1">
-            <h1 class="text-xl font-bold text-blue-400">3D Light Lab <span class="text-xs font-normal text-gray-500 ml-1">v1.0.0</span></h1>
-            <button onclick="toggleUI(false)" class="text-gray-400 hover:text-white mt-1" title="Hide Panel">✖</button>
+            <h1 class="text-xl font-bold text-blue-400">3D Light Lab <span class="text-xs font-normal text-gray-500 ml-1">v1.0.1</span></h1>
+            <button onclick="toggleUI(false)" class="text-gray-400 hover:text-white mt-1 p-2 -mr-2 -mt-2" title="Hide Panel">✖</button>
         </div>
         <p class="text-xs text-gray-400 mb-5 leading-tight">Rotate view by dragging background. Click objects to select. Drag the yellow ball to move the light.</p>
         
@@ -123,7 +124,7 @@
         <div class="flex flex-col space-y-3 mb-6 bg-gray-800 p-3 rounded border border-gray-700">
             <div class="flex items-center justify-between">
                 <span class="text-sm text-gray-300">Color</span>
-                <input type="color" id="obj-color" onmousedown="saveState()" oninput="updateSelectedColor(this.value)" class="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent">
+                <input type="color" id="obj-color" onmousedown="saveState()" oninput="updateSelectedColor(this.value)" class="w-10 h-10 rounded cursor-pointer border-0 p-0 bg-transparent">
             </div>
             <div class="flex flex-col">
                 <span class="text-sm mb-1 text-gray-300">Opacity</span>
@@ -196,11 +197,11 @@
     <!-- File Import handled via hidden input -->
 
     <!-- NEW: Custom Modal for Messages and Critiques -->
-    <div id="custom-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm">
-        <div class="bg-gray-800 border border-gray-600 rounded-xl p-6 max-w-md w-full shadow-2xl relative m-4">
+    <div id="custom-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm p-4">
+        <div class="bg-gray-800 border border-gray-600 rounded-xl p-6 max-w-md w-full shadow-2xl relative">
             <button onclick="closeModal()" class="absolute top-3 right-4 text-2xl text-gray-400 hover:text-white">&times;</button>
-            <h3 id="modal-title" class="text-xl font-bold text-white mb-4">Message</h3>
-            <div id="modal-content" class="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto pr-2 break-all"></div>
+            <h3 id="modal-title" class="text-xl font-bold text-white mb-4 pr-6">Message</h3>
+            <div id="modal-content" class="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed max-h-[60vh] overflow-y-auto pr-2 break-words"></div>
             <div class="mt-6 flex justify-end">
                 <button onclick="closeModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded shadow-sm text-sm font-semibold transition-colors">Close</button>
             </div>
@@ -208,10 +209,10 @@
     </div>
     
     <!-- URL Import Modal -->
-    <div id="import-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm">
-        <div class="bg-gray-800 border border-gray-600 rounded-xl p-6 max-w-md w-full shadow-2xl relative m-4">
+    <div id="import-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm p-4">
+        <div class="bg-gray-800 border border-gray-600 rounded-xl p-6 max-w-md w-full shadow-2xl relative">
             <button onclick="closeImportModal()" class="absolute top-3 right-4 text-2xl text-gray-400 hover:text-white">&times;</button>
-            <h3 class="text-xl font-bold text-white mb-4">Import Scene</h3>
+            <h3 class="text-xl font-bold text-white mb-4 pr-6">Import Scene</h3>
             <textarea id="import-data" rows="6" class="w-full bg-gray-900 text-sm text-white px-3 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-500 mb-4" placeholder="Paste raw JSON data OR a complete Share Link URL here..."></textarea>
             <div class="flex justify-end space-x-2">
                 <button onclick="closeImportModal()" class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded text-sm transition-colors font-semibold shadow-sm">Cancel</button>
@@ -985,6 +986,15 @@
             reader.readAsText(file);
         };
 
+        window.showImportModal = function() {
+            document.getElementById('import-data').value = '';
+            document.getElementById('import-modal').classList.remove('hidden');
+        };
+
+        window.closeImportModal = function() {
+            document.getElementById('import-modal').classList.add('hidden');
+        };
+
         window.importScene = function() {
             let dataStr = document.getElementById('import-data').value.trim();
             if (!dataStr) return;
@@ -1219,8 +1229,17 @@
 
         // Helper function to handle raycasting for interactable objects cleanly
         function getClickedObject(e) {
-            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            let clientX, clientY;
+            if (e.changedTouches) {
+                clientX = e.changedTouches[0].clientX;
+                clientY = e.changedTouches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(interactableObjects, true);
             const validHits = intersects.filter(hit => hit.object !== beam);
@@ -1300,9 +1319,18 @@
         renderer.domElement.addEventListener('pointerdown', (event) => {
             const mode = document.querySelector('input[name="mode"]:checked').value;
             
+            let clientX, clientY;
+            if (event.changedTouches) {
+                clientX = event.changedTouches[0].clientX;
+                clientY = event.changedTouches[0].clientY;
+            } else {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            }
+
             // First check if clicking the transform gizmo
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
             const gizmoIntersects = raycaster.intersectObjects([transformControl], true);
             
@@ -1313,8 +1341,8 @@
             // --- BOX SELECT MODE INTERACTION ---
             if (mode === 'select' && !(event.ctrlKey || event.metaKey)) {
                 isSelecting = true;
-                startX = event.clientX;
-                startY = event.clientY;
+                startX = clientX;
+                startY = clientY;
                 selectionBoxDiv.style.left = startX + 'px';
                 selectionBoxDiv.style.top = startY + 'px';
                 selectionBoxDiv.style.width = '0px';
@@ -1494,12 +1522,19 @@
         // Process Box Selection movements and resolution
         window.addEventListener('pointermove', (e) => {
             if (isSelecting) {
-                const currentX = e.clientX;
-                const currentY = e.clientY;
-                selectionBoxDiv.style.left = Math.min(startX, currentX) + 'px';
-                selectionBoxDiv.style.top = Math.min(startY, currentY) + 'px';
-                selectionBoxDiv.style.width = Math.abs(currentX - startX) + 'px';
-                selectionBoxDiv.style.height = Math.abs(currentY - startY) + 'px';
+                let clientX, clientY;
+                if (e.changedTouches) {
+                    clientX = e.changedTouches[0].clientX;
+                    clientY = e.changedTouches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+
+                selectionBoxDiv.style.left = Math.min(startX, clientX) + 'px';
+                selectionBoxDiv.style.top = Math.min(startY, clientY) + 'px';
+                selectionBoxDiv.style.width = Math.abs(clientX - startX) + 'px';
+                selectionBoxDiv.style.height = Math.abs(clientY - startY) + 'px';
             }
         });
 
@@ -1508,8 +1543,17 @@
                 isSelecting = false;
                 selectionBoxDiv.classList.add('hidden');
                 
-                const dx = Math.abs(e.clientX - startX);
-                const dy = Math.abs(e.clientY - startY);
+                let clientX, clientY;
+                if (e.changedTouches) {
+                    clientX = e.changedTouches[0].clientX;
+                    clientY = e.changedTouches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+
+                const dx = Math.abs(clientX - startX);
+                const dy = Math.abs(clientY - startY);
                 
                 // Allow a tiny box to act like a normal single click fallback inside select mode
                 if (dx < 5 && dy < 5) {
@@ -1531,10 +1575,10 @@
                 
                 // Process the drawn Box Bounds
                 const rect = {
-                    left: Math.min(startX, e.clientX),
-                    right: Math.max(startX, e.clientX),
-                    top: Math.min(startY, e.clientY),
-                    bottom: Math.max(startY, e.clientY)
+                    left: Math.min(startX, clientX),
+                    right: Math.max(startX, clientX),
+                    top: Math.min(startY, clientY),
+                    bottom: Math.max(startY, clientY)
                 };
                 
                 const newlySelected = [];
@@ -1874,6 +1918,11 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
+            // Check for mobile screens to collapse UI by default
+            if (window.innerWidth < 640) {
+                toggleUI(false);
+            }
+
             if (!loadSceneFromHash()) {
                 // Add some initial objects to start if no URL hash exists or it was invalid
                 addObject('plane');
