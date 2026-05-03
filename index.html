@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-    3D Shadow & Light Lab v1.0.1
+    3D Shadow & Light Lab v1.0.2
     Copyright (c) 2026 Patrick Wolf
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -65,7 +65,7 @@
     <!-- UI Overlay: Made mobile responsive with right-4 and sm:w-96 -->
     <div id="main-ui" class="absolute top-4 left-4 right-4 sm:right-auto sm:w-96 max-h-[90vh] overflow-y-auto bg-gray-900 bg-opacity-85 text-white p-5 rounded-xl shadow-2xl backdrop-blur-md border border-gray-700 select-none z-10 transition-all">
         <div class="flex justify-between items-start mb-1">
-            <h1 class="text-xl font-bold text-blue-400">3D Light Lab <span class="text-xs font-normal text-gray-500 ml-1">v1.0.1</span></h1>
+            <h1 class="text-xl font-bold text-blue-400">3D Light Lab <span class="text-xs font-normal text-gray-500 ml-1">v1.0.2</span></h1>
             <button onclick="toggleUI(false)" class="text-gray-400 hover:text-white mt-1 p-2 -mr-2 -mt-2" title="Hide Panel">✖</button>
         </div>
         <p class="text-xs text-gray-400 mb-5 leading-tight">Rotate view by dragging background. Click objects to select. Drag the yellow ball to move the light.</p>
@@ -361,7 +361,7 @@
         const beamMat = new THREE.MeshBasicMaterial({ 
             color: 0xffffee, 
             transparent: true, 
-            opacity: 0.08, 
+            opacity: 0.04, // Reduced to make the light cone more translucent
             side: THREE.DoubleSide, 
             depthWrite: false, 
             blending: THREE.AdditiveBlending 
@@ -824,6 +824,10 @@
                     pos: {x: lightGroup.position.x, y: lightGroup.position.y, z: lightGroup.position.z},
                     rot: {x: lightGroup.quaternion.x, y: lightGroup.quaternion.y, z: lightGroup.quaternion.z, w: lightGroup.quaternion.w},
                     targetPos: {x: lightTargetMesh.position.x, y: lightTargetMesh.position.y, z: lightTargetMesh.position.z}
+                },
+                camera: {
+                    pos: {x: camera.position.x, y: camera.position.y, z: camera.position.z},
+                    target: {x: orbitControls.target.x, y: orbitControls.target.y, z: orbitControls.target.z}
                 }
             };
         }
@@ -845,6 +849,16 @@
             lightGroup.position.set(state.light.pos.x, state.light.pos.y, state.light.pos.z);
             lightGroup.quaternion.set(state.light.rot.x, state.light.rot.y, state.light.rot.z, state.light.rot.w);
             lightTargetMesh.position.set(state.light.targetPos.x, state.light.targetPos.y, state.light.targetPos.z);
+
+            // Restore camera (with fallback for old saves)
+            if (state.camera) {
+                camera.position.set(state.camera.pos.x, state.camera.pos.y, state.camera.pos.z);
+                orbitControls.target.set(state.camera.target.x, state.camera.target.y, state.camera.target.z);
+            } else {
+                camera.position.set(12, 10, 18);
+                orbitControls.target.set(0, 0, 0);
+            }
+            orbitControls.update();
 
             // Restore objects
             state.objects.forEach(def => {
@@ -1033,6 +1047,10 @@
                     pos: {x: 4, y: 8, z: 4},
                     rot: {x: 0, y: 0, z: 0, w: 1},
                     targetPos: {x: 0, y: 0, z: 0}
+                },
+                camera: {
+                    pos: {x: 12, y: 10, z: 18},
+                    target: {x: 0, y: 0, z: 0}
                 }
             });
             // Re-add default objects
