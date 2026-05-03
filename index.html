@@ -1,0 +1,1928 @@
+<!DOCTYPE html>
+<!--
+    3D Shadow & Light Lab v1.0.0
+    Copyright (c) 2026 Patrick Wolf
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D Shadow & Light Lab</title>
+    <!-- Tailwind CSS for UI styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls for rotating the camera -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- TransformControls for moving/rotating objects -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+    <!-- LZ-String for URL compression -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+    
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111827; }
+        canvas { display: block; touch-action: none; }
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4B5563; border-radius: 3px; }
+        /* Box Select styling */
+        .selection-box {
+            position: absolute;
+            border: 1px solid rgba(96, 165, 250, 0.8);
+            background-color: rgba(96, 165, 250, 0.2);
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Floating Show UI Button -->
+    <button id="btn-show-ui" onclick="toggleUI(true)" class="hidden absolute top-4 left-4 z-20 bg-gray-900 bg-opacity-85 text-white py-2 px-4 rounded-xl shadow-2xl backdrop-blur-md border border-gray-700 font-bold hover:bg-gray-800 flex items-center gap-2 transition-all">
+        👁️ Show Tools
+    </button>
+
+    <!-- UI Overlay -->
+    <div id="main-ui" class="absolute top-4 left-4 w-96 max-h-[90vh] overflow-y-auto bg-gray-900 bg-opacity-85 text-white p-5 rounded-xl shadow-2xl backdrop-blur-md border border-gray-700 select-none z-10 transition-all">
+        <div class="flex justify-between items-start mb-1">
+            <h1 class="text-xl font-bold text-blue-400">3D Light Lab <span class="text-xs font-normal text-gray-500 ml-1">v1.0.0</span></h1>
+            <button onclick="toggleUI(false)" class="text-gray-400 hover:text-white mt-1" title="Hide Panel">✖</button>
+        </div>
+        <p class="text-xs text-gray-400 mb-5 leading-tight">Rotate view by dragging background. Click objects to select. Drag the yellow ball to move the light.</p>
+        
+        <h2 class="text-sm font-semibold mb-2 uppercase tracking-wider text-gray-300">Add Objects</h2>
+        <div class="grid grid-cols-3 gap-2 mb-6">
+            <button class="bg-gray-800 hover:bg-gray-700 border border-gray-600 transition-colors py-2 rounded shadow-sm text-sm" onclick="addObject('cube')">🧊 Cube</button>
+            <button class="bg-gray-800 hover:bg-gray-700 border border-gray-600 transition-colors py-2 rounded shadow-sm text-sm" onclick="addObject('sphere')">🔮 Sphere</button>
+            <button class="bg-gray-800 hover:bg-gray-700 border border-gray-600 transition-colors py-2 rounded shadow-sm text-sm" onclick="addObject('cone')">📐 Cone</button>
+            <button class="bg-gray-800 hover:bg-gray-700 border border-gray-600 transition-colors py-2 rounded shadow-sm text-sm" onclick="addObject('cylinder')">🛢️ Cylinder</button>
+            <button class="bg-gray-800 hover:bg-gray-700 border border-gray-600 transition-colors py-2 rounded shadow-sm text-sm" onclick="addObject('torus')">🍩 Torus</button>
+            <button class="bg-gray-800 hover:bg-gray-700 border border-gray-600 transition-colors py-2 rounded shadow-sm text-sm" onclick="addObject('plane')">📄 Plane</button>
+        </div>
+
+        <h2 class="text-sm font-semibold mb-2 uppercase tracking-wider text-gray-300">Transform Mode</h2>
+        <div class="flex flex-col space-y-2 mb-6 bg-gray-800 p-3 rounded border border-gray-700">
+            <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="mode" value="select" onchange="setMode('select')" class="text-blue-500 focus:ring-blue-500">
+                <span class="text-sm">🔲 Select</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="mode" value="translate" checked onchange="setMode('translate')" class="text-blue-500 focus:ring-blue-500">
+                <span class="text-sm">↔️ Move (Translate)</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="mode" value="rotate" onchange="setMode('rotate')" class="text-blue-500 focus:ring-blue-500">
+                <span class="text-sm">🔄 Turn (Rotate)</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="mode" value="scale" onchange="setMode('scale')" class="text-blue-500 focus:ring-blue-500">
+                <span class="text-sm">⤡ Resize (Scale)</span>
+            </label>
+
+            <label class="flex items-center space-x-2 cursor-pointer mt-2">
+                <input type="radio" name="mode" value="edit" onchange="setMode('edit')" class="text-pink-500 focus:ring-pink-500">
+                <span class="text-sm text-pink-400 font-semibold">✏️ Edit Vertices (Polygons)</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="mode" value="magnet" onchange="setMode('magnet')" class="text-indigo-500 focus:ring-indigo-500">
+                <span class="text-sm font-bold text-indigo-300">🧲 Edge Snap (Magnet)</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="mode" value="vmagnet" onchange="setMode('vmagnet')" class="text-teal-500 focus:ring-teal-500">
+                <span class="text-sm font-bold text-teal-300">📌 Point Snap (Vertex)</span>
+            </label>
+            <div id="magnet-hint" class="hidden text-xs text-yellow-200 mt-2 font-semibold bg-gray-800 p-2 rounded text-center border border-yellow-700/50">Select object first.</div>
+
+            <div class="h-px bg-gray-700 my-2"></div>
+            <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" id="snap-toggle" onchange="toggleSnap(this.checked)" class="text-blue-500 focus:ring-blue-500 rounded">
+                <span class="text-sm font-bold text-blue-400">Snap to Ticks & 45°</span>
+            </label>
+        </div>
+
+        <h2 class="text-sm font-semibold mb-2 uppercase tracking-wider text-gray-300">Apply to Selected</h2>
+        <div class="flex flex-col space-y-3 mb-6 bg-gray-800 p-3 rounded border border-gray-700">
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-300">Color</span>
+                <input type="color" id="obj-color" onmousedown="saveState()" oninput="updateSelectedColor(this.value)" class="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent">
+            </div>
+            <div class="flex flex-col">
+                <span class="text-sm mb-1 text-gray-300">Opacity</span>
+                <input type="range" id="obj-opacity" min="0.1" max="1" step="0.05" value="1" onmousedown="saveState()" oninput="updateSelectedOpacity(this.value)" class="w-full accent-blue-500">
+            </div>
+            
+            <div class="h-px bg-gray-700 my-1"></div>
+            <span class="text-xs text-gray-400 mt-1">Material</span>
+            <div class="grid grid-cols-2 gap-2 mt-1">
+                <button onclick="applyMaterialToSelected('glass')" class="bg-blue-200 hover:bg-blue-300 transition-colors text-blue-900 text-center py-1.5 rounded shadow-sm text-sm font-semibold">🧊 Glass</button>
+                <button onclick="applyMaterialToSelected('mirror')" class="bg-gray-300 hover:bg-white transition-colors text-gray-900 text-center py-1.5 rounded shadow-sm text-sm font-semibold">🪞 Mirror</button>
+                <button onclick="applyMaterialToSelected('wood')" class="bg-amber-700 hover:bg-amber-600 transition-colors text-amber-100 text-center py-1.5 rounded shadow-sm text-sm font-semibold">🪵 Wood</button>
+                <button onclick="applyMaterialToSelected('matte')" class="bg-pink-500 hover:bg-pink-400 transition-colors text-white text-center py-1.5 rounded shadow-sm text-sm font-semibold">🧱 Matte</button>
+            </div>
+        </div>
+
+        <h2 class="text-sm font-semibold mb-2 uppercase tracking-wider text-gray-300">Operations</h2>
+        <div class="flex flex-col space-y-2 mb-6 bg-gray-800 p-3 rounded border border-gray-700">
+            <div class="flex space-x-2">
+                <button onclick="undo()" class="w-1/2 bg-gray-700 hover:bg-gray-600 text-white transition-colors border border-gray-600 py-2 rounded shadow-sm text-sm font-semibold">
+                    ↩️ Undo
+                </button>
+                <button id="btn-delete" class="w-1/2 bg-red-900 hover:bg-red-700 text-red-100 transition-colors border border-red-700 py-2 rounded shadow-sm text-sm font-semibold" title="HotKey: Delete">
+                    🗑️ Delete
+                </button>
+            </div>
+            <div class="h-px bg-gray-700 my-1"></div>
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="exportJSON()" class="bg-yellow-800 hover:bg-yellow-700 text-yellow-100 transition-colors border border-yellow-600 py-2 rounded shadow-sm text-sm font-semibold">
+                    💾 Export JSON
+                </button>
+                <button onclick="triggerImport()" class="bg-gray-700 hover:bg-gray-600 text-green-200 transition-colors border border-gray-500 py-2 rounded shadow-sm text-sm font-semibold">
+                    📥 Import JSON
+                </button>
+                <button onclick="shareLink()" class="bg-blue-800 hover:bg-blue-700 text-blue-100 transition-colors border border-blue-600 py-2 rounded shadow-sm text-sm font-semibold">
+                    🔗 Share Link
+                </button>
+                <button onclick="resetScene()" class="bg-gray-700 hover:bg-red-900/80 text-red-300 transition-colors border border-gray-500 hover:border-red-600 py-2 rounded shadow-sm text-sm font-semibold">
+                    ⚠️ Reset
+                </button>
+            </div>
+        </div>
+        <input type="file" id="import-file" class="hidden" accept=".json" onchange="handleFileImport(event)">
+
+        <!-- NEW: AI Magic Section -->
+        <h2 class="text-sm font-semibold mb-2 uppercase tracking-wider text-purple-400 flex items-center gap-1">✨ AI Magic</h2>
+        <div class="flex flex-col space-y-2 mb-2 bg-gray-800 p-3 rounded border border-gray-700">
+            <input type="text" id="ai-prompt" placeholder="e.g. A tiny solar system" class="w-full bg-gray-900 text-sm text-white px-3 py-2 rounded border border-gray-600 focus:outline-none focus:border-purple-500 placeholder-gray-500">
+            <button id="btn-ai-generate" onclick="generateSceneWithAI()" class="w-full bg-purple-700 hover:bg-purple-600 text-white transition-colors py-2 rounded shadow-sm text-sm font-semibold">
+                ✨ Generate Scene
+            </button>
+            <div class="h-px bg-gray-700 my-1"></div>
+            <button id="btn-ai-describe" onclick="describeSceneWithAI()" class="w-full bg-indigo-700 hover:bg-indigo-600 text-white transition-colors py-2 rounded shadow-sm text-sm font-semibold">
+                ✨ Critique Art
+            </button>
+            <button onclick="promptForApiKey()" class="w-full mt-1 text-xs text-gray-500 hover:text-gray-300 underline text-center">
+                ⚙️ Set/Change API Key
+            </button>
+        </div>
+
+        <div class="mt-6 text-center text-xs text-gray-600">
+            Created by <a href="https://github.com/patrickwolf" target="_blank" class="underline hover:text-gray-400">Patrick Wolf</a><br>
+            <button onclick="showLicense()" class="underline hover:text-gray-400 mt-1">MIT License</button>
+        </div>
+    </div>
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container" class="absolute inset-0 z-0"></div>
+
+    <!-- File Import handled via hidden input -->
+
+    <!-- NEW: Custom Modal for Messages and Critiques -->
+    <div id="custom-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm">
+        <div class="bg-gray-800 border border-gray-600 rounded-xl p-6 max-w-md w-full shadow-2xl relative m-4">
+            <button onclick="closeModal()" class="absolute top-3 right-4 text-2xl text-gray-400 hover:text-white">&times;</button>
+            <h3 id="modal-title" class="text-xl font-bold text-white mb-4">Message</h3>
+            <div id="modal-content" class="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto pr-2 break-all"></div>
+            <div class="mt-6 flex justify-end">
+                <button onclick="closeModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded shadow-sm text-sm font-semibold transition-colors">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- URL Import Modal -->
+    <div id="import-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm">
+        <div class="bg-gray-800 border border-gray-600 rounded-xl p-6 max-w-md w-full shadow-2xl relative m-4">
+            <button onclick="closeImportModal()" class="absolute top-3 right-4 text-2xl text-gray-400 hover:text-white">&times;</button>
+            <h3 class="text-xl font-bold text-white mb-4">Import Scene</h3>
+            <textarea id="import-data" rows="6" class="w-full bg-gray-900 text-sm text-white px-3 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-500 mb-4" placeholder="Paste raw JSON data OR a complete Share Link URL here..."></textarea>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeImportModal()" class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded text-sm transition-colors font-semibold shadow-sm">Cancel</button>
+                <button onclick="importScene()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded text-sm font-semibold transition-colors shadow-sm">Load Scene</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x111827); // Match Tailwind gray-900
+
+        // Camera
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(12, 10, 18);
+
+        // Renderer
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Performance optimization
+        
+        // Enable Shadows
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // --- 2. Controls ---
+        // Orbit controls for rotating the whole scene (Feature 1a)
+        const orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+        orbitControls.enableDamping = true;
+        orbitControls.dampingFactor = 0.05;
+
+        // Transform controls for moving/rotating individual objects (Feature 2a)
+        const transformControl = new THREE.TransformControls(camera, renderer.domElement);
+        transformControl.addEventListener('dragging-changed', function (event) {
+            // Disable camera rotation when dragging an object
+            const currentMode = document.querySelector('input[name="mode"]:checked').value;
+            orbitControls.enabled = !event.value && currentMode !== 'select';
+            if (event.value && typeof saveState === 'function') {
+                saveState(); // Save state before drag starts
+            }
+        });
+        scene.add(transformControl);
+
+        // --- NEW: Environment Map for Mirrors ---
+        function createEnvMap() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            const grd = ctx.createLinearGradient(0, 0, 0, 512);
+            grd.addColorStop(0, '#1e293b');
+            grd.addColorStop(0.5, '#64748b');
+            grd.addColorStop(1, '#0f172a');
+            ctx.fillStyle = grd;
+            ctx.fillRect(0, 0, 512, 512);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.filter = 'blur(8px)';
+            ctx.beginPath(); ctx.arc(256, 128, 40, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(128, 384, 20, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(384, 384, 20, 0, Math.PI*2); ctx.fill();
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.mapping = THREE.EquirectangularReflectionMapping;
+            return tex;
+        }
+        const staticEnvMap = createEnvMap();
+        
+        // Create a dynamic reflection camera to mirror surrounding objects
+        const cubeRenderTarget = new THREE.WebGLCubeRenderTarget(256, { 
+            generateMipmaps: true, 
+            minFilter: THREE.LinearMipmapLinearFilter 
+        });
+        const cubeCamera = new THREE.CubeCamera(0.1, 100, cubeRenderTarget);
+        cubeCamera.position.set(0, 3, 0); // Center of the room
+        scene.add(cubeCamera);
+        
+        // Set the scene environment to the live updating cube camera
+        scene.environment = cubeRenderTarget.texture;
+
+        // --- 3. Environment & Lighting ---
+        // Feature 1: The translucent wireframe box
+        const boxSize = 15;
+        const boxGeo = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
+        const boxMat = new THREE.MeshBasicMaterial({ 
+            color: 0x4B5563, // Tailwind gray-600
+            wireframe: true, 
+            transparent: true, 
+            opacity: 0.3 
+        });
+        const wireframeBox = new THREE.Mesh(boxGeo, boxMat);
+        
+        // Add Snap Ticks to the wireframe
+        const tickGeo = new THREE.SphereGeometry(0.04, 8, 8); // Made much smaller
+        const tickMat = new THREE.MeshBasicMaterial({ color: 0x60A5FA, transparent: true, opacity: 0.4 }); // Made subtle
+        const ticks = [-7.5, -3.75, 0, 3.75, 7.5];
+        
+        // Generate points along the edges
+        for (let axis of ['x', 'y', 'z']) {
+            for (let a of [-7.5, 7.5]) {
+                for (let b of [-7.5, 7.5]) {
+                    for (let t of ticks) {
+                        const dot = new THREE.Mesh(tickGeo, tickMat);
+                        if (axis === 'x') dot.position.set(t, a, b);
+                        if (axis === 'y') dot.position.set(a, t, b);
+                        if (axis === 'z') dot.position.set(a, b, t);
+                        wireframeBox.add(dot);
+                    }
+                }
+            }
+        }
+        scene.add(wireframeBox);
+
+        // Basic ambient light so shadows aren't pitch black
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+        scene.add(ambientLight);
+
+        // Feature 3: Movable light source (SpotLight with beam and target)
+        const lightGroup = new THREE.Group();
+        
+        const spotLight = new THREE.SpotLight(0xffffee, 2.5, 50, Math.PI/6, 0.4, 1);
+        spotLight.castShadow = true;
+        spotLight.shadow.mapSize.width = 2048; 
+        spotLight.shadow.mapSize.height = 2048;
+        spotLight.shadow.bias = -0.00005; // Reduced significantly to prevent light bleeding through thin planes
+        spotLight.shadow.normalBias = 0.02; // Added to prevent acne without causing light bleed
+        
+        // Light Bulb core
+        const bulbGeo = new THREE.SphereGeometry(0.4, 16, 16);
+        const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffffee });
+        const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+        
+        // Light Fixture/Casing
+        const casingGeo = new THREE.ConeGeometry(0.6, 0.8, 16);
+        casingGeo.translate(0, 0.4, 0);
+        casingGeo.rotateX(-Math.PI/2);
+        const casingMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 });
+        const casing = new THREE.Mesh(casingGeo, casingMat);
+        
+        // Beam volume visualization
+        const beamGeo = new THREE.ConeGeometry(Math.tan(spotLight.angle) * 15, 15, 32, 1, true);
+        beamGeo.translate(0, -7.5, 0);
+        beamGeo.rotateX(-Math.PI/2);
+        const beamMat = new THREE.MeshBasicMaterial({ 
+            color: 0xffffee, 
+            transparent: true, 
+            opacity: 0.08, 
+            side: THREE.DoubleSide, 
+            depthWrite: false, 
+            blending: THREE.AdditiveBlending 
+        });
+        const beam = new THREE.Mesh(beamGeo, beamMat);
+        beam.raycast = function() {}; // Prevent beam from intercepting raycasts entirely!
+        
+        lightGroup.add(spotLight);
+        lightGroup.add(bulb);
+        lightGroup.add(casing);
+        lightGroup.add(beam);
+        lightGroup.position.set(4, 8, 4);
+
+        // Light Target Mesh
+        const targetGeo = new THREE.OctahedronGeometry(0.4);
+        const targetMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true });
+        const lightTargetMesh = new THREE.Mesh(targetGeo, targetMat);
+        lightTargetMesh.position.set(0, 0, 0);
+        
+        spotLight.target = lightTargetMesh;
+        
+        scene.add(lightGroup);
+        scene.add(lightTargetMesh);
+
+        // Keep track of objects we can interact with
+        const interactableObjects = [lightGroup, lightTargetMesh];
+        
+        // State variables for editing tools
+        let selectedObject = null;
+        let selectedObjects = []; // For Multi-Select
+        const multiSelectGroup = new THREE.Group();
+        scene.add(multiSelectGroup);
+
+        const editGroup = new THREE.Group();
+        scene.add(editGroup);
+        let vertexHelpers = [];
+        let edgeHelpers = [];
+
+        // State variables for Magnet snap tool
+        const magnetGroup = new THREE.Group();
+        scene.add(magnetGroup);
+        let magnetSourceLocalMid = null;
+        let magnetSourceLocalDir = null;
+        let magnetLocalS1 = null;
+        let magnetLocalS2 = null;
+        let magnetLastTarget = null;
+        let magnetFlipped = false;
+        let magnetHighlight = null;
+
+        // State variables for Vertex Magnet tool
+        let vMagnetSourcePoints = [];
+        let vMagnetSelectedIdx = undefined;
+        let vMagnetSelectedLocalPos = null;
+
+        // Dynamic Polygon Geometry Updater
+        function updatePolygonGeo(mesh) {
+            const pts = mesh.userData.points;
+            if(!pts || pts.length < 3) return;
+            const centroid = new THREE.Vector3();
+            pts.forEach(p => centroid.add(p));
+            centroid.divideScalar(pts.length);
+
+            const vertices = [];
+            const uvs = [];
+            // Basic fan triangulation from centroid
+            for(let i=0; i<pts.length; i++) {
+                const p1 = pts[i];
+                const p2 = pts[(i+1)%pts.length];
+                vertices.push(p1.x, p1.y, p1.z);
+                vertices.push(p2.x, p2.y, p2.z);
+                vertices.push(centroid.x, centroid.y, centroid.z);
+                uvs.push(0,0, 1,0, 0.5,1); 
+            }
+
+            if(mesh.geometry) mesh.geometry.dispose();
+            mesh.geometry = new THREE.BufferGeometry();
+            mesh.geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            mesh.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+            mesh.geometry.computeVertexNormals();
+        }
+
+        // Draws the red corners and yellow edges
+        function updateEditHelpers() {
+            editGroup.clear();
+            vertexHelpers = [];
+            edgeHelpers = [];
+            
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            if (!selectedObject || !selectedObject.userData.isPolygon || mode !== 'edit') return;
+
+            const pts = selectedObject.userData.points;
+            const vGeo = new THREE.SphereGeometry(0.15, 16, 16);
+            const vMat = new THREE.MeshBasicMaterial({color: 0xff3333, depthTest: false, transparent: true, opacity: 0.8});
+            const lMat = new THREE.LineBasicMaterial({color: 0xffff00, depthTest: false, transparent: true, opacity: 0.8});
+
+            for(let i=0; i<pts.length; i++) {
+                // Point marker
+                const ptWorld = selectedObject.localToWorld(pts[i].clone());
+                const vMesh = new THREE.Mesh(vGeo, vMat);
+                vMesh.position.copy(ptWorld);
+                vMesh.userData.index = i;
+                vMesh.userData.isVertex = true;
+                editGroup.add(vMesh);
+                vertexHelpers.push(vMesh);
+
+                // Line segment to next point
+                const nextPt = selectedObject.localToWorld(pts[(i+1)%pts.length].clone());
+                const lGeo = new THREE.BufferGeometry().setFromPoints([ptWorld, nextPt]);
+                const lMesh = new THREE.Line(lGeo, lMat);
+                lMesh.userData.index = i;
+                lMesh.userData.isEdge = true;
+                editGroup.add(lMesh);
+                edgeHelpers.push(lMesh);
+            }
+        }
+
+        // --- 4. Object Creation (Feature 2) ---
+        // Color palette for new objects
+        const colors = [0xef4444, 0x3b82f6, 0x10b981, 0xf59e0b, 0x8b5cf6, 0xec4899];
+        
+        // Procedural Wood Texture generator
+        function createWoodTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#8B5A2B';
+            ctx.fillRect(0,0,256,256);
+            for(let i=0; i<80; i++) {
+                ctx.fillStyle = `rgba(60, 30, 10, ${Math.random()*0.15})`;
+                ctx.fillRect(0, Math.random()*256, 256, Math.random()*6 + 1);
+            }
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        const materialsLib = {
+            glass: { type: 'physical', props: { metalness: 0.1, roughness: 0.15, transmission: 0.3, ior: 1.5, thickness: 2, transparent: true, opacity: 0.8 } },
+            mirror: { type: 'standard', props: { metalness: 1.0, roughness: 0.0 } },
+            wood:  { type: 'standard', props: { map: createWoodTexture(), roughness: 0.9, metalness: 0.0, color: 0xffffff } },
+            matte: { type: 'standard', props: { roughness: 0.8, metalness: 0.1 } }
+        };
+
+        window.applyMaterial = function(object, matName) {
+            const matDef = materialsLib[matName];
+            if (!matDef) return;
+            
+            object.userData.matType = matName; // Save for undo
+
+            const oldColor = object.material.color.getHex();
+            const oldOpacity = object.material.opacity;
+            object.material.dispose(); // clean up old material
+            
+            if (matDef.type === 'physical') {
+                object.material = new THREE.MeshPhysicalMaterial({ 
+                    color: oldColor, 
+                    ...matDef.props
+                });
+            } else {
+                const colorToUse = matName === 'wood' ? 0xffffff : oldColor;
+                object.material = new THREE.MeshStandardMaterial({ 
+                    color: colorToUse, 
+                    ...matDef.props
+                });
+            }
+            
+            // Maintain opacity state
+            if (oldOpacity < 1 || matName === 'glass') {
+                object.material.transparent = true;
+                object.material.opacity = oldOpacity;
+                object.material.depthWrite = false;
+            } else {
+                object.material.transparent = false;
+                object.material.depthWrite = true;
+            }
+            
+            if (object.userData.isPolygon) {
+                object.material.side = THREE.DoubleSide;
+            }
+            object.material.needsUpdate = true;
+        };
+
+        window.applyMaterialToSelected = function(matName) {
+            const targets = selectedObjects.length > 0 ? selectedObjects : (selectedObject ? [selectedObject] : []);
+            const validTargets = targets.filter(o => o !== lightGroup && o !== lightTargetMesh);
+            if (validTargets.length > 0) {
+                saveState();
+                validTargets.forEach(o => applyMaterial(o, matName));
+            }
+        };
+
+        window.updateSelectedColor = function(hexStr) {
+            const targets = selectedObjects.length > 0 ? selectedObjects : (selectedObject ? [selectedObject] : []);
+            targets.forEach(o => {
+                if (o.material && o !== lightGroup && o !== lightTargetMesh) {
+                    o.material.color.set(hexStr);
+                }
+            });
+        };
+
+        window.updateSelectedOpacity = function(val) {
+            const targets = selectedObjects.length > 0 ? selectedObjects : (selectedObject ? [selectedObject] : []);
+            const opacityVal = parseFloat(val);
+            targets.forEach(o => {
+                if (o.material && o !== lightGroup && o !== lightTargetMesh) {
+                    o.material.opacity = opacityVal;
+                    const isGlass = o.userData.matType === 'glass';
+                    o.material.transparent = isGlass || opacityVal < 1;
+                    o.material.depthWrite = isGlass ? false : opacityVal === 1;
+                    o.material.needsUpdate = true;
+                }
+            });
+        };
+
+        window.toggleSnap = function(enabled) {
+            // 15 total size / 4 intervals = 3.75 units per snap
+            transformControl.translationSnap = enabled ? 15 / 4 : null; 
+            transformControl.rotationSnap = enabled ? Math.PI / 4 : null; // 45 degrees
+        };
+        
+        // --- Multi-Select Handlers ---
+        function clearMultiSelect() {
+            if (selectedObjects.length > 0) {
+                [...selectedObjects].forEach(obj => {
+                    scene.attach(obj); // Maintains world transform perfectly when grouping breaks
+                });
+                selectedObjects = [];
+            }
+            multiSelectGroup.position.set(0,0,0);
+            multiSelectGroup.quaternion.identity();
+            multiSelectGroup.scale.set(1,1,1);
+            multiSelectGroup.updateMatrixWorld();
+            
+            if (transformControl.object === multiSelectGroup) {
+                transformControl.detach();
+            }
+        }
+
+        function applyMultiSelect(objs) {
+            clearMultiSelect();
+            if (objs.length === 0) {
+                selectedObject = null;
+                selectedObjects = [];
+                return;
+            }
+            if (objs.length === 1) {
+                selectObject(objs[0]);
+                return;
+            }
+            selectedObject = null;
+            selectedObjects = [...new Set(objs)];
+            
+            // Calculate mathematical center of all selected items using their 8 corners for extreme precision
+            const box = new THREE.Box3();
+            selectedObjects.forEach(o => {
+                o.updateMatrixWorld();
+                const oBox = new THREE.Box3().setFromObject(o);
+                if (!oBox.isEmpty()) {
+                    box.expandByPoint(oBox.min);
+                    box.expandByPoint(oBox.max);
+                }
+            });
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            
+            multiSelectGroup.position.copy(center);
+            multiSelectGroup.quaternion.identity();
+            multiSelectGroup.scale.set(1,1,1);
+            multiSelectGroup.updateMatrixWorld();
+            
+            selectedObjects.forEach(o => multiSelectGroup.attach(o));
+            
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            if (mode !== 'select') {
+                transformControl.attach(multiSelectGroup);
+            } else {
+                transformControl.detach();
+            }
+            
+            const firstWithMat = selectedObjects.find(o => o.material && o.material.color);
+            if (firstWithMat) {
+                document.getElementById('obj-color').value = '#' + firstWithMat.material.color.getHexString();
+                document.getElementById('obj-opacity').value = firstWithMat.material.opacity !== undefined ? firstWithMat.material.opacity : 1;
+            }
+        }
+
+        // --- Magnet Snap Helpers ---
+        function buildMagnetHelpers() {
+            // Clean old geometry
+            magnetGroup.children.forEach(c => {
+                if(c.geometry) c.geometry.dispose();
+                if(c.material) c.material.dispose();
+            });
+            magnetGroup.clear();
+            magnetHighlight = null;
+
+            if (!selectedObject) return;
+
+            // 1. Source Edges (Yellow)
+            let sGeo;
+            if (selectedObject.userData.isPolygon) {
+                 const pts = selectedObject.userData.points;
+                 const linePts = [];
+                 for(let i=0; i<pts.length; i++) {
+                     linePts.push(pts[i].clone(), pts[(i+1)%pts.length].clone());
+                 }
+                 sGeo = new THREE.BufferGeometry().setFromPoints(linePts);
+            } else if (selectedObject.geometry) {
+                 sGeo = new THREE.EdgesGeometry(selectedObject.geometry);
+            } else {
+                 // Fallback for objects/groups without standard geometry (like lightGroup)
+                 sGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
+            }
+            const sMat = new THREE.LineBasicMaterial({color: 0xffff00, depthTest: false, linewidth: 2});
+            const sLines = new THREE.LineSegments(sGeo, sMat);
+            sLines.userData = { isSource: true };
+            sLines.position.copy(selectedObject.position);
+            sLines.quaternion.copy(selectedObject.quaternion);
+            sLines.scale.copy(selectedObject.scale);
+            magnetGroup.add(sLines);
+
+            // 2. Target Edges (Blue) - Box
+            const tGeo = new THREE.EdgesGeometry(boxGeo);
+            const tMat = new THREE.LineBasicMaterial({color: 0x60A5FA, depthTest: false, opacity: 0.6, transparent: true});
+            const tLines = new THREE.LineSegments(tGeo, tMat);
+            tLines.userData = { isTarget: true };
+            tLines.position.copy(wireframeBox.position);
+            tLines.quaternion.copy(wireframeBox.quaternion);
+            tLines.scale.copy(wireframeBox.scale);
+            magnetGroup.add(tLines);
+            
+            // 3. Target Edges (Blue) - Other Objects
+            interactableObjects.forEach(obj => {
+                if (obj !== selectedObject && obj !== lightGroup && !obj.userData.isPolygon && obj.geometry) {
+                    const oGeo = new THREE.EdgesGeometry(obj.geometry);
+                    const oLines = new THREE.LineSegments(oGeo, tMat.clone());
+                    oLines.userData = { isTarget: true };
+                    oLines.position.copy(obj.position);
+                    oLines.quaternion.copy(obj.quaternion);
+                    oLines.scale.copy(obj.scale);
+                    magnetGroup.add(oLines);
+                }
+            });
+        }
+
+        function buildVMagnetHelpers() {
+            magnetGroup.children.forEach(c => {
+                if(c.geometry) c.geometry.dispose();
+                if(c.material) c.material.dispose();
+            });
+            magnetGroup.clear();
+            vMagnetSourcePoints = [];
+            vMagnetSelectedLocalPos = null;
+            vMagnetSelectedIdx = undefined;
+
+            if (!selectedObject) return;
+
+            const vGeo = new THREE.SphereGeometry(0.2, 16, 16);
+            const vMat = new THREE.MeshBasicMaterial({color: 0xff3333, depthTest: false, transparent: true, opacity: 0.9});
+            
+            if (selectedObject.userData.isPolygon) {
+                const pts = selectedObject.userData.points;
+                for(let i=0; i<pts.length; i++) {
+                    const ptWorld = selectedObject.localToWorld(pts[i].clone());
+                    const vMesh = new THREE.Mesh(vGeo, vMat.clone());
+                    vMesh.position.copy(ptWorld);
+                    vMesh.userData = { isVSource: true, index: i, localPos: pts[i].clone() };
+                    magnetGroup.add(vMesh);
+                    vMagnetSourcePoints.push(vMesh);
+                }
+            } else if (selectedObject.geometry?.attributes?.position) {
+                const posAttr = selectedObject.geometry.attributes.position;
+                const uniquePts = [];
+                for(let i=0; i<posAttr.count; i++) {
+                    const pLocal = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+                    if (!uniquePts.some(up => up.distanceTo(pLocal) < 0.01)) {
+                        uniquePts.push(pLocal.clone());
+                        const ptWorld = selectedObject.localToWorld(pLocal.clone());
+                        const vMesh = new THREE.Mesh(vGeo, vMat.clone());
+                        vMesh.position.copy(ptWorld);
+                        vMesh.userData = { isVSource: true, localPos: pLocal.clone() };
+                        magnetGroup.add(vMesh);
+                        vMagnetSourcePoints.push(vMesh);
+                    }
+                }
+            } else {
+                // Fallback for groups/objects without standard geometry (like lightGroup)
+                const pLocal = new THREE.Vector3(0, 0, 0);
+                const ptWorld = selectedObject.localToWorld(pLocal.clone());
+                const vMesh = new THREE.Mesh(vGeo, vMat.clone());
+                vMesh.position.copy(ptWorld);
+                vMesh.userData = { isVSource: true, localPos: pLocal };
+                magnetGroup.add(vMesh);
+                vMagnetSourcePoints.push(vMesh);
+            }
+
+            const tGeo = new THREE.SphereGeometry(0.15, 16, 16);
+            const tMat = new THREE.MeshBasicMaterial({color: 0x60A5FA, depthTest: false, transparent: true, opacity: 0.6});
+
+            wireframeBox.children.forEach(c => {
+                if (c.geometry && c.geometry.type === "SphereGeometry") {
+                    const dot = new THREE.Mesh(tGeo, tMat);
+                    dot.position.copy(wireframeBox.localToWorld(c.position.clone()));
+                    dot.userData = { isVTarget: true };
+                    magnetGroup.add(dot);
+                }
+            });
+
+            interactableObjects.forEach(obj => {
+                if (obj !== selectedObject && obj !== lightGroup) {
+                    if (obj.userData.isPolygon) {
+                        obj.userData.points.forEach(p => {
+                            const dot = new THREE.Mesh(tGeo, tMat);
+                            dot.position.copy(obj.localToWorld(p.clone()));
+                            dot.userData = { isVTarget: true };
+                            magnetGroup.add(dot);
+                        });
+                    } else if (obj.geometry?.attributes?.position) {
+                         const posAttr = obj.geometry.attributes.position;
+                         const uniquePts = [];
+                         for(let i=0; i<posAttr.count; i++) {
+                            const pLocal = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+                            if (!uniquePts.some(up => up.distanceTo(pLocal) < 0.6)) { 
+                                uniquePts.push(pLocal.clone());
+                                const dot = new THREE.Mesh(tGeo, tMat);
+                                dot.position.copy(obj.localToWorld(pLocal.clone()));
+                                dot.userData = { isVTarget: true };
+                                magnetGroup.add(dot);
+                            }
+                         }
+                    }
+                }
+            });
+        }
+
+        // --- NEW: ADVANCED STATE & CLIPBOARD ENGINE ---
+        const undoStack = [];
+        let isRestoring = false;
+
+        function getSceneStateData() {
+            return {
+                objects: interactableObjects.filter(o => o !== lightGroup && o !== lightTargetMesh).map(obj => {
+                    // Extract true world coords even if object is nested inside multiSelectGroup right now
+                    const wPos = new THREE.Vector3(); obj.getWorldPosition(wPos);
+                    const wRot = new THREE.Quaternion(); obj.getWorldQuaternion(wRot);
+                    const wScale = new THREE.Vector3(); obj.getWorldScale(wScale);
+
+                    return {
+                        geomType: obj.geometry.type,
+                        isPolygon: obj.userData.isPolygon,
+                        points: obj.userData.isPolygon ? obj.userData.points.map(p => ({x: p.x, y: p.y, z: p.z})) : null,
+                        pos: {x: wPos.x, y: wPos.y, z: wPos.z},
+                        rot: {x: wRot.x, y: wRot.y, z: wRot.z, w: wRot.w},
+                        scale: {x: wScale.x, y: wScale.y, z: wScale.z},
+                        color: obj.material.color.getHex(),
+                        opacity: obj.material.opacity,
+                        transparent: obj.material.transparent,
+                        matType: obj.userData.matType || 'matte'
+                    };
+                }),
+                light: {
+                    pos: {x: lightGroup.position.x, y: lightGroup.position.y, z: lightGroup.position.z},
+                    rot: {x: lightGroup.quaternion.x, y: lightGroup.quaternion.y, z: lightGroup.quaternion.z, w: lightGroup.quaternion.w},
+                    targetPos: {x: lightTargetMesh.position.x, y: lightTargetMesh.position.y, z: lightTargetMesh.position.z}
+                }
+            };
+        }
+
+        function loadSceneState(state) {
+            clearMultiSelect();
+            // Clean current scene
+            const objsToRemove = interactableObjects.filter(o => o !== lightGroup && o !== lightTargetMesh);
+            objsToRemove.forEach(obj => {
+                scene.remove(obj);
+                if (obj.geometry) obj.geometry.dispose();
+                if (obj.material) obj.material.dispose();
+            });
+            interactableObjects.length = 0;
+            interactableObjects.push(lightGroup, lightTargetMesh);
+            selectObject(null);
+
+            // Restore light
+            lightGroup.position.set(state.light.pos.x, state.light.pos.y, state.light.pos.z);
+            lightGroup.quaternion.set(state.light.rot.x, state.light.rot.y, state.light.rot.z, state.light.rot.w);
+            lightTargetMesh.position.set(state.light.targetPos.x, state.light.targetPos.y, state.light.targetPos.z);
+
+            // Restore objects
+            state.objects.forEach(def => {
+                try {
+                    let geometry;
+                    if (def.isPolygon) {
+                        geometry = new THREE.BufferGeometry();
+                    } else if (def.geomType === 'BoxGeometry') geometry = new THREE.BoxGeometry(2, 2, 2);
+                    else if (def.geomType === 'SphereGeometry') geometry = new THREE.SphereGeometry(1.5, 32, 32);
+                    else if (def.geomType === 'ConeGeometry') geometry = new THREE.ConeGeometry(1.5, 3, 32);
+                    else if (def.geomType === 'CylinderGeometry') geometry = new THREE.CylinderGeometry(1, 1, 2, 32);
+                    else if (def.geomType === 'TorusGeometry') geometry = new THREE.TorusGeometry(1, 0.4, 16, 50);
+                    else geometry = new THREE.BoxGeometry(2, 2, 2);
+
+                    const material = new THREE.MeshStandardMaterial({ color: def.color !== undefined ? def.color : 0xffffff });
+                    const mesh = new THREE.Mesh(geometry, material);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    mesh.position.set(def.pos.x, def.pos.y, def.pos.z);
+                    mesh.quaternion.set(def.rot.x, def.rot.y, def.rot.z, def.rot.w);
+                    mesh.scale.set(def.scale.x, def.scale.y, def.scale.z);
+
+                    if (def.isPolygon) {
+                        mesh.userData.isPolygon = true;
+                        mesh.userData.points = def.points.map(p => new THREE.Vector3(p.x, p.y, p.z));
+                        updatePolygonGeo(mesh);
+                        material.side = THREE.DoubleSide;
+                    }
+
+                    scene.add(mesh);
+                    interactableObjects.push(mesh);
+                    
+                    applyMaterial(mesh, def.matType);
+                    if(mesh.material) {
+                        mesh.material.color.setHex(def.color !== undefined ? def.color : 0xffffff);
+                        const isGlass = def.matType === 'glass';
+                        const opacity = def.opacity !== undefined ? def.opacity : 1;
+                        mesh.material.transparent = isGlass || opacity < 1;
+                        mesh.material.opacity = opacity;
+                        mesh.material.depthWrite = isGlass ? false : opacity === 1;
+                        mesh.material.needsUpdate = true;
+                    }
+                } catch (err) {
+                    console.error("Failed to load object", def, err);
+                }
+            });
+
+            if (document.querySelector('input[name="mode"]:checked').value === 'edit') setMode('edit');
+        }
+
+        window.saveState = function() {
+            if (isRestoring) return;
+            undoStack.push(getSceneStateData());
+            if (undoStack.length > 30) undoStack.shift(); // Keep last 30 actions
+        };
+
+        window.undo = function() {
+            if (undoStack.length === 0) return;
+            isRestoring = true;
+            loadSceneState(undoStack.pop());
+            isRestoring = false;
+        };
+
+        window.shareLink = function() {
+            const stateStr = JSON.stringify(getSceneStateData());
+            const compressed = LZString.compressToEncodedURIComponent(stateStr);
+            
+            let baseHref = window.location.href.split('#')[0];
+            try {
+                if (window.top && window.top.location && window.top.location.href) {
+                    baseHref = window.top.location.href.split('#')[0];
+                }
+            } catch(e) {}
+            
+            const shareUrl = baseHref + '#scene=' + compressed;
+            
+            const ta = document.createElement('textarea');
+            ta.value = shareUrl;
+            ta.style.position = 'absolute';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand('copy');
+                try {
+                    if (window.top && window.top.history) {
+                        window.top.history.replaceState(null, null, '#scene=' + compressed);
+                    } else {
+                        window.history.replaceState(null, null, '#scene=' + compressed);
+                    }
+                } catch (e) {
+                    // Ignored in restricted environments like blobs
+                }
+                showModal("A shareable link to this exact scene has been copied to your clipboard!\n\nPaste it anywhere to share it.", "🔗 Link Copied!");
+            } catch (err) {
+                showModal("Copy to clipboard failed. Here is your shareable link:\n\n" + shareUrl, "Share Link");
+            }
+            document.body.removeChild(ta);
+        };
+
+        window.exportJSON = function() {
+            const stateStr = JSON.stringify(getSceneStateData(), null, 2);
+            const blob = new Blob([stateStr], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "3d_scene.json";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showModal("Your scene has been downloaded as a JSON file.", "💾 Export Successful");
+        };
+
+        window.triggerImport = function() {
+            document.getElementById('import-file').click();
+        };
+
+        window.handleFileImport = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const state = JSON.parse(e.target.result);
+                    if (!state.light || !state.objects) throw new Error("Invalid scene format missing required structures.");
+                    saveState(); // Allow undoing the import!
+                    isRestoring = true;
+                    loadSceneState(state);
+                    isRestoring = false;
+                    showModal("Scene loaded successfully from file!", "Import Success");
+                } catch(err) {
+                    showModal("Failed to load scene data. Ensure it is a valid JSON file.\n\nError: " + err.message, "Import Error");
+                }
+                event.target.value = ''; // Reset file input so same file can be selected again
+            };
+            reader.readAsText(file);
+        };
+
+        window.importScene = function() {
+            let dataStr = document.getElementById('import-data').value.trim();
+            if (!dataStr) return;
+            
+            // Check if user pasted a Share Link instead of raw JSON
+            if (dataStr.includes('#scene=')) {
+                try {
+                    const compressed = dataStr.substring(dataStr.indexOf('#scene=') + 7).replace(/ /g, '+');
+                    const stateStr = LZString.decompressFromEncodedURIComponent(compressed);
+                    if (stateStr) dataStr = stateStr; // Replace with extracted JSON string
+                } catch(e) {
+                    console.error("Failed to extract scene from URL", e);
+                }
+            }
+
+            try {
+                const state = JSON.parse(dataStr);
+                if (!state.light || !state.objects) throw new Error("Invalid scene format missing required structures.");
+                saveState(); // Allow undoing the import!
+                isRestoring = true;
+                loadSceneState(state);
+                isRestoring = false;
+                closeImportModal();
+                showModal("Scene loaded successfully!", "Import Success");
+            } catch(err) {
+                showModal("Failed to load scene data. Ensure it is valid JSON or a valid Share Link.\n\nError: " + err.message, "Import Error");
+            }
+        };
+
+        window.resetScene = function() {
+            saveState(); // Save current state so you can undo the clear
+            isRestoring = true; // Prevent intermediate saves while we rebuild the default state
+            loadSceneState({
+                objects: [],
+                light: {
+                    pos: {x: 4, y: 8, z: 4},
+                    rot: {x: 0, y: 0, z: 0, w: 1},
+                    targetPos: {x: 0, y: 0, z: 0}
+                }
+            });
+            // Re-add default objects
+            addObject('plane');
+            addObject('cube');
+            selectObject(null);
+            
+            // Clear hash so a refresh doesn't bring back the old state
+            try {
+                if (window.top && window.top.history) {
+                    window.top.history.replaceState(null, null, window.top.location.pathname + window.top.location.search);
+                } else {
+                    window.history.replaceState(null, null, window.location.pathname + window.location.search);
+                }
+            } catch (e) {
+                // Ignored in restricted environments like blobs
+            }
+            isRestoring = false;
+        };
+
+        window.toggleUI = function(show) {
+            if (show) {
+                document.getElementById('main-ui').classList.remove('hidden');
+                document.getElementById('btn-show-ui').classList.add('hidden');
+            } else {
+                document.getElementById('main-ui').classList.add('hidden');
+                document.getElementById('btn-show-ui').classList.remove('hidden');
+            }
+        };
+
+        window.addObject = function(type) {
+            saveState();
+            let geometry;
+            let isPolygon = false;
+            let points = [];
+
+            switch(type) {
+                case 'cube': geometry = new THREE.BoxGeometry(2, 2, 2); break;
+                case 'sphere': geometry = new THREE.SphereGeometry(1.5, 32, 32); break;
+                case 'cone': geometry = new THREE.ConeGeometry(1.5, 3, 32); break;
+                case 'cylinder': geometry = new THREE.CylinderGeometry(1, 1, 2, 32); break;
+                case 'torus': geometry = new THREE.TorusGeometry(1, 0.4, 16, 50); break;
+                case 'plane': 
+                    isPolygon = true;
+                    // Start as a 4-point square
+                    points = [
+                        new THREE.Vector3(-3, 0, -3),
+                        new THREE.Vector3(3, 0, -3),
+                        new THREE.Vector3(3, 0, 3),
+                        new THREE.Vector3(-3, 0, 3)
+                    ];
+                    geometry = new THREE.BufferGeometry(); 
+                    break;
+            }
+
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            const material = new THREE.MeshStandardMaterial({ 
+                color: randomColor, 
+                roughness: 0.3, 
+                metalness: 0.1
+            });
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            
+            // Feature 4: Shadows and intersections
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+
+            if (isPolygon) {
+                mesh.userData.isPolygon = true;
+                mesh.userData.points = points;
+                updatePolygonGeo(mesh);
+                material.side = THREE.DoubleSide;
+            }
+
+            // Spawn at random location inside the center of the box
+            // Added microscopic jitter to prevent Z-fighting on exact coordinate overlaps
+            mesh.position.set(
+                (Math.random() - 0.5) * 4 + (Math.random() * 0.002 - 0.001),
+                (Math.random() - 0.5) * 4 + (Math.random() * 0.002 - 0.001),
+                (Math.random() - 0.5) * 4 + (Math.random() * 0.002 - 0.001)
+            );
+
+            scene.add(mesh);
+            interactableObjects.push(mesh);
+            
+            // Automatically select the new object
+            selectObject(mesh);
+        };
+
+        // UI Mode switching
+        window.setMode = function(mode) {
+            orbitControls.enabled = (mode !== 'select'); // Disable camera orbit when box selecting
+
+            if (mode === 'edit' || mode === 'magnet' || mode === 'vmagnet') {
+                clearMultiSelect(); // Tools that operate on singular meshes clear multi-select
+                transformControl.detach(); // detach from whole object
+            } else {
+                if (selectedObjects.length > 0) {
+                    if (mode !== 'select') transformControl.attach(multiSelectGroup);
+                    else transformControl.detach();
+                } else if (selectedObject) {
+                    if (mode !== 'select') transformControl.attach(selectedObject);
+                    else transformControl.detach();
+                }
+            }
+
+            if (mode === 'select') {
+                transformControl.setMode('translate'); // Default to translate fallback while selecting
+            } else if (['translate', 'rotate', 'scale'].includes(mode)) {
+                transformControl.setMode(mode);
+            }
+
+            // Handle Edit Mode Visuals
+            if (mode === 'edit' && selectedObject && selectedObject.userData.isPolygon) {
+                updateEditHelpers();
+            } else {
+                editGroup.clear();
+            }
+
+            // Handle Magnet Mode Visuals
+            const magnetHint = document.getElementById('magnet-hint');
+            if (mode === 'magnet' || mode === 'vmagnet') {
+                if (selectedObject && selectedObjects.length === 0) {
+                    if (mode === 'magnet') {
+                        buildMagnetHelpers();
+                        magnetHint.innerText = "Edge Snap: Click a YELLOW edge.";
+                    } else {
+                        if(typeof buildVMagnetHelpers === 'function') buildVMagnetHelpers();
+                        magnetHint.innerText = selectedObject.userData.isPolygon ? 
+                            "Deform: Click a RED corner." : 
+                            "Move: Click a RED corner.";
+                    }
+                } else {
+                    magnetHint.innerText = "Please select a single object first!";
+                }
+                magnetHint.classList.remove('hidden');
+            } else {
+                magnetGroup.clear();
+                magnetSourceLocalMid = null;
+                vMagnetSelectedLocalPos = null;
+                magnetHint.classList.add('hidden');
+            }
+        };
+
+        // Central selection handling logic
+        function selectObject(obj) {
+            clearMultiSelect();
+            selectedObject = obj;
+            selectedObjects = []; // Ensure multi is cleared
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            
+            if(obj) {
+                if (mode === 'edit' && obj.userData.isPolygon) {
+                    transformControl.detach();
+                } else if (mode !== 'magnet' && mode !== 'vmagnet' && mode !== 'select') {
+                    transformControl.attach(obj);
+                }
+
+                // Update UI panels with object properties
+                if (obj.material && obj.material.color) {
+                    document.getElementById('obj-color').value = '#' + obj.material.color.getHexString();
+                    document.getElementById('obj-opacity').value = obj.material.opacity !== undefined ? obj.material.opacity : 1;
+                }
+            } else {
+                transformControl.detach();
+            }
+            updateEditHelpers();
+            if (mode === 'magnet') buildMagnetHelpers();
+            if (mode === 'vmagnet' && typeof buildVMagnetHelpers === 'function') buildVMagnetHelpers();
+            
+            if ((mode === 'magnet' || mode === 'vmagnet')) {
+                const magnetHint = document.getElementById('magnet-hint');
+                if (obj) {
+                    if (mode === 'magnet') magnetHint.innerText = "Edge Snap: Click a YELLOW edge.";
+                    if (mode === 'vmagnet') magnetHint.innerText = obj.userData.isPolygon ? "Deform: Click a RED corner." : "Move: Click a RED corner.";
+                } else {
+                    magnetHint.innerText = "Please select a single object first!";
+                }
+            }
+        }
+
+        // --- 5. Interaction & Raycasting ---
+        const raycaster = new THREE.Raycaster();
+        raycaster.params.Line.threshold = 0.3; // Generous hit-box for double-clicking edge lines
+        const mouse = new THREE.Vector2();
+
+        // Variables for Box Select
+        const selectionBoxDiv = document.createElement('div');
+        selectionBoxDiv.className = 'selection-box hidden';
+        document.body.appendChild(selectionBoxDiv);
+        let isSelecting = false;
+        let startX, startY;
+
+        // Helper function to handle raycasting for interactable objects cleanly
+        function getClickedObject(e) {
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(interactableObjects, true);
+            const validHits = intersects.filter(hit => hit.object !== beam);
+            if (validHits.length > 0) {
+                let clickedObject = validHits[0].object;
+                if (clickedObject === bulb || clickedObject === casing) clickedObject = lightGroup;
+                if (clickedObject === lightTargetMesh) clickedObject = lightTargetMesh;
+                return clickedObject;
+            }
+            return null;
+        }
+
+        // Update polygon points when a vertex helper is dragged
+        transformControl.addEventListener('change', function () {
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            if (mode === 'edit' && transformControl.object && transformControl.object.userData.isVertex) {
+                const vMesh = transformControl.object;
+                const idx = vMesh.userData.index;
+                
+                // Convert helper world position back to local polygon space
+                selectedObject.userData.points[idx].copy( selectedObject.worldToLocal(vMesh.position.clone()) );
+                updatePolygonGeo(selectedObject);
+                
+                // Update ONLY the lines (edges) to connect to the new vertex position without deleting the vertex we are dragging
+                const pts = selectedObject.userData.points;
+                for(let i=0; i<pts.length; i++) {
+                    const ptWorld = selectedObject.localToWorld(pts[i].clone());
+                    const nextPt = selectedObject.localToWorld(pts[(i+1)%pts.length].clone());
+                    
+                    const line = edgeHelpers[i];
+                    if (line) {
+                        line.geometry.dispose(); // clean up old geometry memory
+                        line.geometry = new THREE.BufferGeometry().setFromPoints([ptWorld, nextPt]);
+                    }
+                }
+            }
+        });
+
+        // Handle double clicks for adding/removing vertices
+        renderer.domElement.addEventListener('dblclick', (event) => {
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            if (mode !== 'edit' || !selectedObject || !selectedObject.userData.isPolygon) return;
+            
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            // 1. Try to delete vertex (check red balls first)
+            const vHits = raycaster.intersectObjects(vertexHelpers);
+            if (vHits.length > 0) {
+                if (selectedObject.userData.points.length > 3) {
+                    saveState();
+                    const idx = vHits[0].object.userData.index;
+                    selectedObject.userData.points.splice(idx, 1);
+                    updatePolygonGeo(selectedObject);
+                    transformControl.detach();
+                    updateEditHelpers();
+                }
+                return; // Stop after deleting
+            }
+
+            // 2. Try to add vertex on edge (check yellow lines)
+            const eHits = raycaster.intersectObjects(edgeHelpers);
+            if (eHits.length > 0) {
+                saveState();
+                const hit = eHits[0];
+                const idx = hit.object.userData.index;
+                const localHit = selectedObject.worldToLocal(hit.point.clone());
+                // Insert the new point between the current index and the next
+                selectedObject.userData.points.splice(idx + 1, 0, localHit);
+                updatePolygonGeo(selectedObject);
+                updateEditHelpers();
+            }
+        });
+
+        // Handle clicking on objects
+        renderer.domElement.addEventListener('pointerdown', (event) => {
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            
+            // First check if clicking the transform gizmo
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const gizmoIntersects = raycaster.intersectObjects([transformControl], true);
+            
+            if (gizmoIntersects.length > 0 && transformControl.axis !== null) {
+                return; // Let the gizmo handle the drag
+            }
+            
+            // --- BOX SELECT MODE INTERACTION ---
+            if (mode === 'select' && !(event.ctrlKey || event.metaKey)) {
+                isSelecting = true;
+                startX = event.clientX;
+                startY = event.clientY;
+                selectionBoxDiv.style.left = startX + 'px';
+                selectionBoxDiv.style.top = startY + 'px';
+                selectionBoxDiv.style.width = '0px';
+                selectionBoxDiv.style.height = '0px';
+                selectionBoxDiv.classList.remove('hidden');
+                return;
+            }
+
+            // --- POINT SNAP (VMAGNET) MODE INTERACTION ---
+            if (mode === 'vmagnet' && selectedObject && selectedObjects.length === 0) {
+                const hits = raycaster.intersectObjects(magnetGroup.children, true);
+                if (hits.length > 0) {
+                    const hit = hits.find(h => h.object.userData.isVSource || h.object.userData.isVTarget);
+                    if (hit) {
+                        if (hit.object.userData.isVSource) {
+                            vMagnetSelectedIdx = hit.object.userData.index;
+                            vMagnetSelectedLocalPos = hit.object.userData.localPos;
+                            
+                            vMagnetSourcePoints.forEach(p => p.material.color.setHex(0xff3333));
+                            hit.object.material.color.setHex(0xffff00); // Yellow highlight
+                            
+                            document.getElementById('magnet-hint').innerText = "Step 2: Click a BLUE point to snap to.";
+                        } else if (hit.object.userData.isVTarget && vMagnetSelectedLocalPos) {
+                            saveState();
+                            const targetWorldPos = hit.object.position.clone();
+                            
+                            if (selectedObject.userData.isPolygon && vMagnetSelectedIdx !== undefined) {
+                                // DEFORM mode: Move only the selected vertex
+                                const newLocalPos = selectedObject.worldToLocal(targetWorldPos);
+                                selectedObject.userData.points[vMagnetSelectedIdx].copy(newLocalPos);
+                                updatePolygonGeo(selectedObject);
+                            } else {
+                                // RIGID BODY mode: Move the whole object
+                                const currentWorldPos = selectedObject.localToWorld(vMagnetSelectedLocalPos.clone());
+                                const translation = new THREE.Vector3().subVectors(targetWorldPos, currentWorldPos);
+                                selectedObject.position.add(translation);
+                            }
+
+                            if(typeof buildVMagnetHelpers === 'function') buildVMagnetHelpers();
+                            document.getElementById('magnet-hint').innerText = "Snapped! Select another RED vertex.";
+                        }
+                        return; // Consume click
+                    }
+                }
+            }
+
+            // --- MAGNET MODE INTERACTION ---
+            if (mode === 'magnet' && selectedObject && selectedObjects.length === 0) {
+                const hits = raycaster.intersectObjects(magnetGroup.children, true);
+                if (hits.length > 0) {
+                    const hit = hits.find(h => h.object.userData.isSource || h.object.userData.isTarget);
+                    if (hit) {
+                        // Function to extract edge points dynamically
+                        const getEdgePoints = (h) => {
+                            if (!h.object.geometry?.attributes?.position) return null;
+                            const attr = h.object.geometry.attributes.position;
+                            const p1 = new THREE.Vector3().fromBufferAttribute(attr, h.index);
+                            const p2 = new THREE.Vector3().fromBufferAttribute(attr, h.index + 1);
+                            h.object.updateMatrixWorld();
+                            p1.applyMatrix4(h.object.matrixWorld);
+                            p2.applyMatrix4(h.object.matrixWorld);
+                            return [p1, p2];
+                        };
+                        const pts = getEdgePoints(hit);
+                        
+                        if (pts && hit.object.userData.isSource) {
+                            // Save source in local object space so it stays accurate during rotation
+                            magnetLocalS1 = selectedObject.worldToLocal(pts[0].clone());
+                            magnetLocalS2 = selectedObject.worldToLocal(pts[1].clone());
+                            magnetSourceLocalMid = new THREE.Vector3().addVectors(magnetLocalS1, magnetLocalS2).multiplyScalar(0.5);
+                            magnetSourceLocalDir = new THREE.Vector3().subVectors(magnetLocalS2, magnetLocalS1).normalize();
+                            
+                            // Highlight selection in Red dynamically
+                            if (magnetHighlight) {
+                                magnetGroup.remove(magnetHighlight);
+                                magnetHighlight.geometry.dispose();
+                                magnetHighlight.material.dispose();
+                            }
+                            const hlGeo = new THREE.BufferGeometry().setFromPoints([pts[0], pts[1]]);
+                            const hlMat = new THREE.LineBasicMaterial({color: 0xff3333, linewidth: 4, depthTest: false});
+                            magnetHighlight = new THREE.Line(hlGeo, hlMat);
+                            magnetGroup.add(magnetHighlight);
+
+                            document.getElementById('magnet-hint').innerText = "Step 2: Click a BLUE edge to snap to.";
+                        
+                        } else if (pts && hit.object.userData.isTarget && magnetSourceLocalMid) {
+                            saveState();
+                            // Execute Rigid Body Alignment!
+                            const T1 = pts[0];
+                            const T2 = pts[1];
+                            let dTarget = new THREE.Vector3().subVectors(T2, T1).normalize();
+                            const targetMid = new THREE.Vector3().addVectors(T1, T2).multiplyScalar(0.5);
+
+                            // Handle flipping if clicking the exact same edge twice
+                            const targetHash = `${T1.x.toFixed(2)},${T1.y.toFixed(2)},${T1.z.toFixed(2)}`;
+                            if (magnetLastTarget === targetHash) {
+                                magnetFlipped = !magnetFlipped;
+                            } else {
+                                magnetFlipped = false;
+                                magnetLastTarget = targetHash;
+                            }
+
+                            if (magnetFlipped) dTarget.multiplyScalar(-1);
+
+                            // 1. Rotate
+                            const currentWorldDir = magnetSourceLocalDir.clone().applyQuaternion(selectedObject.quaternion).normalize();
+                            const qAlign = new THREE.Quaternion().setFromUnitVectors(currentWorldDir, dTarget);
+                            selectedObject.quaternion.premultiply(qAlign);
+                            selectedObject.updateMatrixWorld();
+
+                            // 2. Translate
+                            const currentWorldMid = selectedObject.localToWorld(magnetSourceLocalMid.clone());
+                            const translation = new THREE.Vector3().subVectors(targetMid, currentWorldMid);
+                            selectedObject.position.add(translation);
+
+                            // Cleanup and UI update
+                            buildMagnetHelpers();
+                            
+                            // Highlight selection in Red dynamically
+                            const newWorldS1 = selectedObject.localToWorld(magnetLocalS1.clone());
+                            const newWorldS2 = selectedObject.localToWorld(magnetLocalS2.clone());
+                            if (magnetHighlight) {
+                                magnetGroup.remove(magnetHighlight);
+                                magnetHighlight.geometry.dispose();
+                                magnetHighlight.material.dispose();
+                            }
+                            const hlGeo = new THREE.BufferGeometry().setFromPoints([newWorldS1, newWorldS2]);
+                            const hlMat = new THREE.LineBasicMaterial({color: 0xff3333, linewidth: 4, depthTest: false});
+                            magnetHighlight = new THREE.Line(hlGeo, hlMat);
+                            magnetGroup.add(magnetHighlight);
+                            
+                            document.getElementById('magnet-hint').innerText = "Snapped! Click target again to flip backwards.";
+                        }
+                        return; // Consume click to avoid object deselection
+                    }
+                }
+            }
+
+            // In edit mode, check if we clicked a red corner vertex first
+            if (mode === 'edit' && selectedObject && selectedObject.userData.isPolygon) {
+                const vHits = raycaster.intersectObjects(vertexHelpers);
+                if (vHits.length > 0) {
+                    transformControl.attach(vHits[0].object);
+                    return; // Handled helper click, stop processing
+                }
+            }
+
+            // Universal Click Selection / Raycast
+            const clickedObject = getClickedObject(event);
+
+            if (clickedObject) {
+                if (event.ctrlKey || event.metaKey) {
+                    // Toggle logic for Multi-Select via clicking
+                    let current = selectedObjects.length > 0 ? [...selectedObjects] : (selectedObject ? [selectedObject] : []);
+                    if (current.includes(clickedObject)) {
+                        current = current.filter(o => o !== clickedObject); // Remove
+                    } else {
+                        current.push(clickedObject); // Add
+                    }
+                    applyMultiSelect(current);
+                } else {
+                    // Standard Single Select (Allows clicking to break groups)
+                    if (clickedObject !== selectedObject) {
+                        selectObject(clickedObject);
+                    } else if (mode !== 'edit' && mode !== 'select') {
+                        // Re-clicking secures attachment
+                        transformControl.attach(clickedObject);
+                    }
+                }
+            } else {
+                if (!(event.ctrlKey || event.metaKey) && mode !== 'select') {
+                    selectObject(null);
+                }
+            }
+        });
+
+        // Process Box Selection movements and resolution
+        window.addEventListener('pointermove', (e) => {
+            if (isSelecting) {
+                const currentX = e.clientX;
+                const currentY = e.clientY;
+                selectionBoxDiv.style.left = Math.min(startX, currentX) + 'px';
+                selectionBoxDiv.style.top = Math.min(startY, currentY) + 'px';
+                selectionBoxDiv.style.width = Math.abs(currentX - startX) + 'px';
+                selectionBoxDiv.style.height = Math.abs(currentY - startY) + 'px';
+            }
+        });
+
+        window.addEventListener('pointerup', (e) => {
+            if (isSelecting) {
+                isSelecting = false;
+                selectionBoxDiv.classList.add('hidden');
+                
+                const dx = Math.abs(e.clientX - startX);
+                const dy = Math.abs(e.clientY - startY);
+                
+                // Allow a tiny box to act like a normal single click fallback inside select mode
+                if (dx < 5 && dy < 5) {
+                    const clickedObject = getClickedObject(e);
+                    if (clickedObject) {
+                        if (e.ctrlKey || e.metaKey) {
+                            let current = selectedObjects.length > 0 ? [...selectedObjects] : (selectedObject ? [selectedObject] : []);
+                            if (current.includes(clickedObject)) current = current.filter(o => o !== clickedObject);
+                            else current.push(clickedObject);
+                            applyMultiSelect(current);
+                        } else {
+                            selectObject(clickedObject);
+                        }
+                    } else {
+                        if (!(e.ctrlKey || e.metaKey)) selectObject(null);
+                    }
+                    return;
+                }
+                
+                // Process the drawn Box Bounds
+                const rect = {
+                    left: Math.min(startX, e.clientX),
+                    right: Math.max(startX, e.clientX),
+                    top: Math.min(startY, e.clientY),
+                    bottom: Math.max(startY, e.clientY)
+                };
+                
+                const newlySelected = [];
+                interactableObjects.forEach(obj => {
+                    let targetObj = obj;
+                    if (obj === bulb || obj === casing) targetObj = lightGroup;
+                    if (obj === lightTargetMesh) targetObj = lightTargetMesh;
+                    
+                    if (targetObj === lightGroup || targetObj === lightTargetMesh) return; // Prevent Box Select from capturing light controls
+                    
+                    if (newlySelected.includes(targetObj)) return; // Already selected
+                    
+                    // Exclude the huge beam from expanding the light group's bounding box to the whole room!
+                    let box;
+                    if (obj === lightGroup) box = new THREE.Box3().setFromObject(bulb);
+                    else box = new THREE.Box3().setFromObject(obj);
+
+                    if (box.isEmpty()) return;
+
+                    // Robust corner-check guarantees objects are selected even if scaled/stretched massively
+                    const corners = [
+                        new THREE.Vector3(box.min.x, box.min.y, box.min.z),
+                        new THREE.Vector3(box.max.x, box.min.y, box.min.z),
+                        new THREE.Vector3(box.min.x, box.max.y, box.min.z),
+                        new THREE.Vector3(box.max.x, box.max.y, box.min.z),
+                        new THREE.Vector3(box.min.x, box.min.y, box.max.z),
+                        new THREE.Vector3(box.max.x, box.min.y, box.max.z),
+                        new THREE.Vector3(box.min.x, box.max.y, box.max.z),
+                        new THREE.Vector3(box.max.x, box.max.y, box.max.z)
+                    ];
+
+                    let isInside = false;
+                    for (let corner of corners) {
+                        corner.project(camera);
+                        const screenX = (corner.x + 1) / 2 * window.innerWidth;
+                        const screenY = -(corner.y - 1) / 2 * window.innerHeight;
+                        if (screenX >= rect.left && screenX <= rect.right && screenY >= rect.top && screenY <= rect.bottom) {
+                            isInside = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!isInside) {
+                        const center = new THREE.Vector3();
+                        box.getCenter(center);
+                        center.project(camera);
+                        const screenX = (center.x + 1) / 2 * window.innerWidth;
+                        const screenY = -(center.y - 1) / 2 * window.innerHeight;
+                        if (screenX >= rect.left && screenX <= rect.right && screenY >= rect.top && screenY <= rect.bottom) {
+                            isInside = true;
+                        }
+                    }
+
+                    if (isInside) newlySelected.push(targetObj);
+                });
+
+                if (e.ctrlKey || e.metaKey) {
+                    // Holding CTRL + Box Drag = Append to current selection
+                    let current = selectedObjects.length > 0 ? [...selectedObjects] : (selectedObject ? [selectedObject] : []);
+                    newlySelected.forEach(o => { if(!current.includes(o)) current.push(o); });
+                    applyMultiSelect(current);
+                } else {
+                    // Standard Box Select = Replace selection
+                    if (newlySelected.length > 0) applyMultiSelect(newlySelected);
+                    else { selectObject(null); }
+                }
+            }
+        });
+
+        // Global Delete Key Binding
+        window.addEventListener('keydown', (e) => {
+            const active = document.activeElement;
+            const isTyping = active.tagName === 'TEXTAREA' || (active.tagName === 'INPUT' && active.type === 'text');
+            
+            if ((e.key === 'Delete' || e.key === 'Backspace') && !isTyping) {
+                document.getElementById('btn-delete').click();
+            }
+        });
+
+        // Handle object deletion
+        document.getElementById('btn-delete').addEventListener('click', () => {
+            const targets = selectedObjects.length > 0 ? [...selectedObjects] : (selectedObject ? [selectedObject] : []);
+            if (targets.length === 0) return;
+            
+            saveState();
+
+            // Crucial: Detach and clear selections FIRST so clearMultiSelect doesn't resurrect them!
+            selectObject(null);
+
+            targets.forEach(obj => {
+                // Don't allow deleting the light or its target directly
+                if (obj && obj !== lightGroup && obj !== lightTargetMesh) {
+                    scene.remove(obj);
+                    
+                    const index = interactableObjects.indexOf(obj);
+                    if (index > -1) interactableObjects.splice(index, 1);
+                    
+                    if (obj.geometry) obj.geometry.dispose();
+                    if (obj.material) {
+                        if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+                        else obj.material.dispose();
+                    }
+                }
+            });
+        });
+
+        // Handle window resizing
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- NEW: 6. Gemini API Integrations ---
+        let apiKey = localStorage.getItem('gemini_api_key') || "";
+
+        function promptForApiKey() {
+            const key = prompt("Enter your Gemini API Key to use AI features.\nYou can get a free key at: aistudio.google.com\n\n(This is saved locally in your browser)", apiKey);
+            if (key !== null) {
+                apiKey = key.trim();
+                localStorage.setItem('gemini_api_key', apiKey);
+                if (apiKey) showModal("API Key saved to your browser!", "Success");
+            }
+            return apiKey;
+        }
+
+        // Custom Modal Logic
+        function showModal(message, title = "Notice") {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-content').innerText = message;
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+        function closeModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+        }
+        
+        function showLicense() {
+            const licenseText = `Copyright (c) 2026 Patrick Wolf\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files... (MIT License)\n\nUsers are free to modify, distribute, and use this tool.`;
+            showModal(licenseText, "MIT License");
+        }
+
+        // Core API Caller with Exponential Backoff
+        async function callGemini(prompt, isJson = false, schema = null) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: "You are a creative 3D scene designer and art critic." }] }
+            };
+            
+            if (isJson && schema) {
+                payload.generationConfig = {
+                    responseMimeType: "application/json",
+                    responseSchema: schema
+                };
+            }
+
+            let retries = 5;
+            let delay = 1000;
+            while (retries > 0) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                    const result = await response.json();
+                    return result.candidates[0].content.parts[0].text;
+                } catch (e) {
+                    retries--;
+                    if (retries === 0) throw e;
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        // Feature 1: AI Scene Generator
+        async function generateSceneWithAI() {
+            if (!apiKey && !promptForApiKey()) return; // Require API Key
+
+            const promptInput = document.getElementById('ai-prompt').value;
+            if (!promptInput) return showModal("Please enter a scene concept first! (e.g. 'A futuristic city')", "Prompt Required");
+            
+            const btn = document.getElementById('btn-ai-generate');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "✨ Generating... (wait for it)";
+            btn.disabled = true;
+
+            const schema = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        type: { type: "STRING", description: "Shape type: 'cube', 'sphere', 'cone', 'cylinder', or 'torus'" },
+                        x: { type: "NUMBER", description: "X position (-6 to 6)" },
+                        y: { type: "NUMBER", description: "Y position (-6 to 6)" },
+                        z: { type: "NUMBER", description: "Z position (-6 to 6)" },
+                        scaleX: { type: "NUMBER", description: "Scale factor X (0.1 to 4)" },
+                        scaleY: { type: "NUMBER", description: "Scale factor Y (0.1 to 4)" },
+                        scaleZ: { type: "NUMBER", description: "Scale factor Z (0.1 to 4)" },
+                        colorHex: { type: "STRING", description: "Hex color (e.g. '#ff0000')" },
+                        material: { type: "STRING", description: "'matte', 'mirror', 'glass', or 'wood'" }
+                    },
+                    required: ["type", "x", "y", "z", "scaleX", "scaleY", "scaleZ", "colorHex", "material"]
+                }
+            };
+
+            const prompt = `Act as an expert Lego master and 3D voxel artist. Your task is to build a scene representing: "${promptInput}". 
+            Instead of abstract shapes, strictly construct literal, recognizable objects (like trees, buildings, vehicles, people, or animals) by combining and squishing primitive blocks together. 
+            Generate exactly 20 to 40 primitive blocks that evoke this scene visually.
+            They will be placed inside a 15x15x15 boundary. Utilize extreme stretching/squishing (scales) to create flat boards, tall poles, or wide bases. Be creative with overlapping geometry and materials.`;
+
+            try {
+                const responseText = await callGemini(prompt, true, schema);
+                const objects = JSON.parse(responseText);
+                
+                saveState();
+
+                objects.forEach(def => {
+                    let geometry;
+                    if (def.type === 'cube') geometry = new THREE.BoxGeometry(2, 2, 2);
+                    else if (def.type === 'sphere') geometry = new THREE.SphereGeometry(1.5, 32, 32);
+                    else if (def.type === 'cone') geometry = new THREE.ConeGeometry(1.5, 3, 32);
+                    else if (def.type === 'cylinder') geometry = new THREE.CylinderGeometry(1, 1, 2, 32);
+                    else if (def.type === 'torus') geometry = new THREE.TorusGeometry(1, 0.4, 16, 50);
+                    else geometry = new THREE.BoxGeometry(2, 2, 2);
+
+                    const material = new THREE.MeshStandardMaterial({ color: def.colorHex });
+                    const mesh = new THREE.Mesh(geometry, material);
+                    
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    
+                    // Prevent AI coordinate Z-Fighting with microscopic offset jitter
+                    mesh.position.set(
+                        def.x + (Math.random() * 0.002 - 0.001), 
+                        def.y + (Math.random() * 0.002 - 0.001), 
+                        def.z + (Math.random() * 0.002 - 0.001)
+                    );
+                    mesh.scale.set(def.scaleX, def.scaleY, def.scaleZ);
+
+                    scene.add(mesh);
+                    interactableObjects.push(mesh);
+                    
+                    // Apply specific material properties while retaining generated color
+                    applyMaterial(mesh, def.material || 'matte');
+                    if (mesh.material) mesh.material.color.set(def.colorHex);
+                });
+            } catch (e) {
+                showModal("Failed to generate scene:\n" + e.message, "Error");
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // Feature 2: AI Art Critic
+        async function describeSceneWithAI() {
+            if (!apiKey && !promptForApiKey()) return; // Require API Key
+
+            const sceneObjects = interactableObjects.filter(o => o !== lightGroup && o !== lightTargetMesh);
+            if (sceneObjects.length === 0) return showModal("Add some objects to the scene first so I have something to critique!", "Empty Canvas");
+
+            const btn = document.getElementById('btn-ai-describe');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "✨ Analyzing Artwork...";
+            btn.disabled = true;
+
+            let sceneDesc = sceneObjects.map((obj, i) => {
+                const type = obj.geometry.type.replace('Geometry', '');
+                const color = obj.material.color ? '#' + obj.material.color.getHexString() : 'unknown';
+                const pos = `x:${obj.position.x.toFixed(1)}, y:${obj.position.y.toFixed(1)}, z:${obj.position.z.toFixed(1)}`;
+                const isPoly = obj.userData.isPolygon ? "(Custom Polygon)" : "";
+                return `Object ${i+1}: ${type} ${isPoly} at (${pos}) colored ${color}`;
+            }).join("\n");
+
+            const prompt = `You are a pretentious but insightful modern art critic. 
+            Look at this literal data map of abstract 3D shapes inside a wireframe cube and write a short, 
+            entertaining 2-paragraph museum plaque description for this "installation art". 
+            Give the artwork a creative, artsy title at the very beginning.
+            
+            Scene data:
+            ${sceneDesc}`;
+
+            try {
+                const text = await callGemini(prompt, false);
+                showModal(text, "Gallery Critique");
+            } catch (e) {
+                showModal("Failed to critique:\n" + e.message, "Error");
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // --- 7. URL Initialization ---
+        function getSceneHash() {
+            let url = window.location.href;
+            
+            // If we are running inside an iframe (like gisthost or Canvas preview), securely try to read the parent's URL
+            try {
+                if (window.top && window.top.location && window.top.location.href) {
+                    url = window.top.location.href;
+                }
+            } catch (e) {
+                // Ignore Cross-Origin security errors from strict iframes
+            }
+
+            const index = url.indexOf('#scene=');
+            if (index !== -1) {
+                return url.substring(index + 7);
+            }
+            return null;
+        }
+
+        function loadSceneFromHash() {
+            try {
+                let compressed = getSceneHash();
+                if (!compressed) return false;
+                
+                // Fix common URL encoding issues where '+' gets stripped into ' ' by browser address bars
+                compressed = compressed.replace(/ /g, '+'); 
+                
+                const stateStr = LZString.decompressFromEncodedURIComponent(compressed);
+                if (stateStr) {
+                    const state = JSON.parse(stateStr);
+                    if (state.light && state.objects) {
+                        loadSceneState(state);
+                        return true;
+                    }
+                }
+            } catch(e) {
+                console.error("Failed to load scene from URL", e);
+            }
+            return false;
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (!loadSceneFromHash()) {
+                // Add some initial objects to start if no URL hash exists or it was invalid
+                addObject('plane');
+                addObject('cube');
+                selectObject(null);
+            }
+        });
+
+        // Listen for hash changes in case the user manually pastes a link while the app is open
+        window.addEventListener('hashchange', () => {
+            loadSceneFromHash();
+        });
+
+        // --- 8. Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (lightGroup && lightTargetMesh) {
+                lightGroup.lookAt(lightTargetMesh.position);
+            }
+
+            // Required if controls.enableDamping or controls.autoRotate are set
+            orbitControls.update();
+            
+            // --- Update Dynamic Reflections ---
+            // Temporarily use the studio gradient as background for the mirror to catch
+            const oldBg = scene.background;
+            scene.background = staticEnvMap; 
+            
+            // Hide tool UI from appearing inside the mirror
+            const gizmoWasVisible = transformControl.visible;
+            transformControl.visible = false;
+            editGroup.visible = false;
+            magnetGroup.visible = false;
+            
+            // Render the reflection from the center of the room
+            cubeCamera.update(renderer, scene);
+            
+            // Restore everything for the real camera render
+            scene.background = oldBg;
+            transformControl.visible = gizmoWasVisible;
+            editGroup.visible = true;
+            magnetGroup.visible = true;
+
+            renderer.render(scene, camera);
+        }
+
+        // Start the loop
+        animate();
+    </script>
+</body>
+</html>
