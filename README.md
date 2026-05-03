@@ -2,7 +2,7 @@
 
 A lightweight, web-based 3D scene editor and light laboratory. Build scenes using primitives, apply physically-based materials (Glass, Mirror, Wood, Matte), and manipulate lighting with realistic real-time shadows.
 
-Try the live demo: [Insert your GitHub Pages URL here]
+Try the live [demo](https://patrickwolf.github.io/3dLab)
 
 ## Features ✨
 * **Intuitive Transform Tools:** Move, rotate, scale, and box-select objects with ease.
