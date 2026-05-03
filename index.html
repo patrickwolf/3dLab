@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-    3D Shadow & Light Lab v1.0.2
+    3D Shadow & Light Lab v1.0.7
     Copyright (c) 2026 Patrick Wolf
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -65,7 +65,7 @@
     <!-- UI Overlay: Made mobile responsive with right-4 and sm:w-96 -->
     <div id="main-ui" class="absolute top-4 left-4 right-4 sm:right-auto sm:w-96 max-h-[90vh] overflow-y-auto bg-gray-900 bg-opacity-85 text-white p-5 rounded-xl shadow-2xl backdrop-blur-md border border-gray-700 select-none z-10 transition-all">
         <div class="flex justify-between items-start mb-1">
-            <h1 class="text-xl font-bold text-blue-400">3D Light Lab <span class="text-xs font-normal text-gray-500 ml-1">v1.0.2</span></h1>
+            <h1 class="text-xl font-bold text-blue-400">3D Light Lab <span class="text-xs font-normal text-gray-500 ml-1">v1.0.7</span></h1>
             <button onclick="toggleUI(false)" class="text-gray-400 hover:text-white mt-1 p-2 -mr-2 -mt-2" title="Hide Panel">✖</button>
         </div>
         <p class="text-xs text-gray-400 mb-5 leading-tight">Rotate view by dragging background. Click objects to select. Drag the yellow ball to move the light.</p>
@@ -160,10 +160,13 @@
                     📥 Import JSON
                 </button>
                 <button onclick="shareLink()" class="bg-blue-800 hover:bg-blue-700 text-blue-100 transition-colors border border-blue-600 py-2 rounded shadow-sm text-sm font-semibold">
-                    🔗 Share Link
+                    🔗 Long Link
                 </button>
-                <button onclick="resetScene()" class="bg-gray-700 hover:bg-red-900/80 text-red-300 transition-colors border border-gray-500 hover:border-red-600 py-2 rounded shadow-sm text-sm font-semibold">
-                    ⚠️ Reset
+                <button onclick="shareShortLink()" id="btn-shortlink" class="bg-purple-800 hover:bg-purple-700 text-purple-100 transition-colors border border-purple-600 py-2 rounded shadow-sm text-sm font-semibold">
+                    🚀 Short Link
+                </button>
+                <button onclick="resetScene()" class="col-span-2 bg-gray-700 hover:bg-red-900/80 text-red-300 transition-colors border border-gray-500 hover:border-red-600 py-2 rounded shadow-sm text-sm font-semibold">
+                    ⚠️ Reset Scene
                 </button>
             </div>
         </div>
@@ -173,15 +176,18 @@
         <h2 class="text-sm font-semibold mb-2 uppercase tracking-wider text-purple-400 flex items-center gap-1">✨ AI Magic</h2>
         <div class="flex flex-col space-y-2 mb-2 bg-gray-800 p-3 rounded border border-gray-700">
             <input type="text" id="ai-prompt" placeholder="e.g. A tiny solar system" class="w-full bg-gray-900 text-sm text-white px-3 py-2 rounded border border-gray-600 focus:outline-none focus:border-purple-500 placeholder-gray-500">
-            <button id="btn-ai-generate" onclick="generateSceneWithAI()" class="w-full bg-purple-700 hover:bg-purple-600 text-white transition-colors py-2 rounded shadow-sm text-sm font-semibold">
-                ✨ Generate Scene
-            </button>
+            <div class="flex space-x-2">
+                <button id="btn-ai-generate" onclick="generateSceneWithAI()" class="w-1/2 bg-purple-700 hover:bg-purple-600 text-white transition-colors py-2 rounded shadow-sm text-sm font-semibold">
+                    ✨ Text to Scene
+                </button>
+                <input type="file" id="ai-image-input" class="hidden" accept="image/*" onchange="generateSceneFromImage(event)">
+                <button id="btn-ai-image" onclick="document.getElementById('ai-image-input').click()" class="w-1/2 bg-blue-700 hover:bg-blue-600 text-white transition-colors py-2 rounded shadow-sm text-sm font-semibold">
+                    🖼️ Image to Scene
+                </button>
+            </div>
             <div class="h-px bg-gray-700 my-1"></div>
             <button id="btn-ai-describe" onclick="describeSceneWithAI()" class="w-full bg-indigo-700 hover:bg-indigo-600 text-white transition-colors py-2 rounded shadow-sm text-sm font-semibold">
                 ✨ Critique Art
-            </button>
-            <button onclick="promptForApiKey()" class="w-full mt-1 text-xs text-gray-500 hover:text-gray-300 underline text-center">
-                ⚙️ Set/Change API Key
             </button>
         </div>
 
@@ -922,6 +928,77 @@
             isRestoring = false;
         };
 
+        window.shareShortLink = async function() {
+            const stateStr = JSON.stringify(getSceneStateData());
+            const btn = document.getElementById('btn-shortlink');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "⏳ Saving...";
+            btn.disabled = true;
+
+            const shortGuid = '3dlab_' + Math.random().toString(36).substring(2, 10);
+            const createdOn = new Date().toISOString().slice(0, 19).replace('T', ' '); // Formats as YYYY-MM-DD HH:MM:SS
+            const createdBy = navigator.userAgent ? navigator.userAgent.substring(0, 100) : "Unknown Browser";
+
+            try {
+                const payload = { 
+                    keyname: shortGuid,
+                    jval: stateStr,
+                    createdon: createdOn,
+                    createdby: createdBy
+                };
+                
+                // Post data to the REST API backend
+                const response = await fetch('https://openapi.nocodebackend.com/create/keyval?Instance=56082_shared', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer 0386f7da07d970e455c4c5e07bb07340b8f9e7738424a9e4f88f96b4291ebd4f'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`API Error (${response.status}): ${errText}`);
+                }
+                
+                let baseHref = window.location.href.split('#')[0];
+                try {
+                    if (window.top && window.top.location && window.top.location.href) {
+                        baseHref = window.top.location.href.split('#')[0];
+                    }
+                } catch(e) {}
+                
+                const shareUrl = baseHref + '#id=' + shortGuid;
+                
+                // Copy to clipboard
+                const ta = document.createElement('textarea');
+                ta.value = shareUrl;
+                ta.style.position = 'absolute';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                
+                // Replace current URL history
+                try {
+                    if (window.top && window.top.history) {
+                        window.top.history.replaceState(null, null, '#id=' + shortGuid);
+                    } else {
+                        window.history.replaceState(null, null, '#id=' + shortGuid);
+                    }
+                } catch (e) {}
+
+                showModal("A secure shortlink to this scene has been saved and copied to your clipboard!\n\n" + shareUrl, "🚀 Short Link Created!");
+            } catch (err) {
+                showModal("Failed to create short link: " + err.message, "Error");
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        };
+
         window.shareLink = function() {
             const stateStr = JSON.stringify(getSceneStateData());
             const compressed = LZString.compressToEncodedURIComponent(stateStr);
@@ -1009,12 +1086,45 @@
             document.getElementById('import-modal').classList.add('hidden');
         };
 
-        window.importScene = function() {
+        window.importScene = async function() {
             let dataStr = document.getElementById('import-data').value.trim();
             if (!dataStr) return;
             
-            // Check if user pasted a Share Link instead of raw JSON
-            if (dataStr.includes('#scene=')) {
+            // Check if user pasted a Short Link ID
+            if (dataStr.includes('#id=')) {
+                try {
+                    const id = dataStr.substring(dataStr.indexOf('#id=') + 4);
+                    let record = null;
+                    
+                    // Use secure keyname search for GUID links
+                    const response = await fetch(`https://openapi.nocodebackend.com/search/keyval?Instance=56082_shared`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer 0386f7da07d970e455c4c5e07bb07340b8f9e7738424a9e4f88f96b4291ebd4f'
+                        },
+                        body: JSON.stringify({ keyname: id })
+                    });
+                    
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        throw new Error(`API Error (${response.status}): ${errText}`);
+                    }
+                    
+                    const result = await response.json();
+                    if (result && result.data) {
+                        if (Array.isArray(result.data) && result.data.length > 0) record = result.data[0];
+                        else if (!Array.isArray(result.data)) record = result.data;
+                    }
+                    
+                    if (record && record.jval) dataStr = record.jval;
+                    else throw new Error("Short link ID not found or empty data returned.");
+                } catch(e) {
+                    return showModal("Failed to extract scene from Short Link.\n" + e.message, "Import Error");
+                }
+            } 
+            // Check if user pasted a Long Share Link
+            else if (dataStr.includes('#scene=')) {
                 try {
                     const compressed = dataStr.substring(dataStr.indexOf('#scene=') + 7).replace(/ /g, '+');
                     const stateStr = LZString.decompressFromEncodedURIComponent(compressed);
@@ -1711,17 +1821,7 @@
         });
 
         // --- NEW: 6. Gemini API Integrations ---
-        let apiKey = localStorage.getItem('gemini_api_key') || "";
-
-        function promptForApiKey() {
-            const key = prompt("Enter your Gemini API Key to use AI features.\nYou can get a free key at: aistudio.google.com\n\n(This is saved locally in your browser)", apiKey);
-            if (key !== null) {
-                apiKey = key.trim();
-                localStorage.setItem('gemini_api_key', apiKey);
-                if (apiKey) showModal("API Key saved to your browser!", "Success");
-            }
-            return apiKey;
-        }
+        const apiKey = ""; // The Canvas environment automatically provides the key at runtime!
 
         // Custom Modal Logic
         function showModal(message, title = "Notice") {
@@ -1739,10 +1839,23 @@
         }
 
         // Core API Caller with Exponential Backoff
-        async function callGemini(prompt, isJson = false, schema = null) {
+        async function callGemini(prompt, isJson = false, schema = null, imageBase64 = null, imageMimeType = null) {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            const parts = [{ text: prompt }];
+            
+            // Inject Vision Data if provided
+            if (imageBase64 && imageMimeType) {
+                parts.push({
+                    inlineData: {
+                        mimeType: imageMimeType,
+                        data: imageBase64.split(',')[1] // Strip off the data:image/png;base64, header
+                    }
+                });
+            }
+
             const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
+                contents: [{ parts: parts }],
                 systemInstruction: { parts: [{ text: "You are a creative 3D scene designer and art critic." }] }
             };
             
@@ -1774,36 +1887,69 @@
             }
         }
 
-        // Feature 1: AI Scene Generator
-        async function generateSceneWithAI() {
-            if (!apiKey && !promptForApiKey()) return; // Require API Key
+        // Shared Object Builder for AI Generators
+        function buildObjectsFromJSON(objects) {
+            saveState();
+            objects.forEach(def => {
+                let geometry;
+                if (def.type === 'cube') geometry = new THREE.BoxGeometry(2, 2, 2);
+                else if (def.type === 'sphere') geometry = new THREE.SphereGeometry(1.5, 32, 32);
+                else if (def.type === 'cone') geometry = new THREE.ConeGeometry(1.5, 3, 32);
+                else if (def.type === 'cylinder') geometry = new THREE.CylinderGeometry(1, 1, 2, 32);
+                else if (def.type === 'torus') geometry = new THREE.TorusGeometry(1, 0.4, 16, 50);
+                else geometry = new THREE.BoxGeometry(2, 2, 2);
 
+                const material = new THREE.MeshStandardMaterial({ color: def.colorHex });
+                const mesh = new THREE.Mesh(geometry, material);
+                
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                
+                // Prevent AI coordinate Z-Fighting with microscopic offset jitter
+                mesh.position.set(
+                    def.x + (Math.random() * 0.002 - 0.001), 
+                    def.y + (Math.random() * 0.002 - 0.001), 
+                    def.z + (Math.random() * 0.002 - 0.001)
+                );
+                mesh.scale.set(def.scaleX, def.scaleY, def.scaleZ);
+
+                scene.add(mesh);
+                interactableObjects.push(mesh);
+                
+                // Apply specific material properties while retaining generated color
+                applyMaterial(mesh, def.material || 'matte');
+                if (mesh.material) mesh.material.color.set(def.colorHex);
+            });
+        }
+
+        const sceneGenerationSchema = {
+            type: "ARRAY",
+            items: {
+                type: "OBJECT",
+                properties: {
+                    type: { type: "STRING", description: "Shape type: 'cube', 'sphere', 'cone', 'cylinder', or 'torus'" },
+                    x: { type: "NUMBER", description: "X position (-6 to 6)" },
+                    y: { type: "NUMBER", description: "Y position (-6 to 6)" },
+                    z: { type: "NUMBER", description: "Z position (-6 to 6)" },
+                    scaleX: { type: "NUMBER", description: "Scale factor X (0.1 to 4)" },
+                    scaleY: { type: "NUMBER", description: "Scale factor Y (0.1 to 4)" },
+                    scaleZ: { type: "NUMBER", description: "Scale factor Z (0.1 to 4)" },
+                    colorHex: { type: "STRING", description: "Hex color (e.g. '#ff0000')" },
+                    material: { type: "STRING", description: "'matte', 'mirror', 'glass', or 'wood'" }
+                },
+                required: ["type", "x", "y", "z", "scaleX", "scaleY", "scaleZ", "colorHex", "material"]
+            }
+        };
+
+        // Feature 1: AI Scene Generator (Text)
+        async function generateSceneWithAI() {
             const promptInput = document.getElementById('ai-prompt').value;
             if (!promptInput) return showModal("Please enter a scene concept first! (e.g. 'A futuristic city')", "Prompt Required");
             
             const btn = document.getElementById('btn-ai-generate');
             const originalText = btn.innerHTML;
-            btn.innerHTML = "✨ Generating... (wait for it)";
+            btn.innerHTML = "✨ Generating...";
             btn.disabled = true;
-
-            const schema = {
-                type: "ARRAY",
-                items: {
-                    type: "OBJECT",
-                    properties: {
-                        type: { type: "STRING", description: "Shape type: 'cube', 'sphere', 'cone', 'cylinder', or 'torus'" },
-                        x: { type: "NUMBER", description: "X position (-6 to 6)" },
-                        y: { type: "NUMBER", description: "Y position (-6 to 6)" },
-                        z: { type: "NUMBER", description: "Z position (-6 to 6)" },
-                        scaleX: { type: "NUMBER", description: "Scale factor X (0.1 to 4)" },
-                        scaleY: { type: "NUMBER", description: "Scale factor Y (0.1 to 4)" },
-                        scaleZ: { type: "NUMBER", description: "Scale factor Z (0.1 to 4)" },
-                        colorHex: { type: "STRING", description: "Hex color (e.g. '#ff0000')" },
-                        material: { type: "STRING", description: "'matte', 'mirror', 'glass', or 'wood'" }
-                    },
-                    required: ["type", "x", "y", "z", "scaleX", "scaleY", "scaleZ", "colorHex", "material"]
-                }
-            };
 
             const prompt = `Act as an expert Lego master and 3D voxel artist. Your task is to build a scene representing: "${promptInput}". 
             Instead of abstract shapes, strictly construct literal, recognizable objects (like trees, buildings, vehicles, people, or animals) by combining and squishing primitive blocks together. 
@@ -1811,41 +1957,11 @@
             They will be placed inside a 15x15x15 boundary. Utilize extreme stretching/squishing (scales) to create flat boards, tall poles, or wide bases. Be creative with overlapping geometry and materials.`;
 
             try {
-                const responseText = await callGemini(prompt, true, schema);
+                let responseText = await callGemini(prompt, true, sceneGenerationSchema);
+                // Safety cleanup in case the AI wraps the JSON in markdown code blocks
+                responseText = responseText.replace(/```json\n?/gi, '').replace(/```/g, '').trim();
                 const objects = JSON.parse(responseText);
-                
-                saveState();
-
-                objects.forEach(def => {
-                    let geometry;
-                    if (def.type === 'cube') geometry = new THREE.BoxGeometry(2, 2, 2);
-                    else if (def.type === 'sphere') geometry = new THREE.SphereGeometry(1.5, 32, 32);
-                    else if (def.type === 'cone') geometry = new THREE.ConeGeometry(1.5, 3, 32);
-                    else if (def.type === 'cylinder') geometry = new THREE.CylinderGeometry(1, 1, 2, 32);
-                    else if (def.type === 'torus') geometry = new THREE.TorusGeometry(1, 0.4, 16, 50);
-                    else geometry = new THREE.BoxGeometry(2, 2, 2);
-
-                    const material = new THREE.MeshStandardMaterial({ color: def.colorHex });
-                    const mesh = new THREE.Mesh(geometry, material);
-                    
-                    mesh.castShadow = true;
-                    mesh.receiveShadow = true;
-                    
-                    // Prevent AI coordinate Z-Fighting with microscopic offset jitter
-                    mesh.position.set(
-                        def.x + (Math.random() * 0.002 - 0.001), 
-                        def.y + (Math.random() * 0.002 - 0.001), 
-                        def.z + (Math.random() * 0.002 - 0.001)
-                    );
-                    mesh.scale.set(def.scaleX, def.scaleY, def.scaleZ);
-
-                    scene.add(mesh);
-                    interactableObjects.push(mesh);
-                    
-                    // Apply specific material properties while retaining generated color
-                    applyMaterial(mesh, def.material || 'matte');
-                    if (mesh.material) mesh.material.color.set(def.colorHex);
-                });
+                buildObjectsFromJSON(objects);
             } catch (e) {
                 showModal("Failed to generate scene:\n" + e.message, "Error");
             } finally {
@@ -1854,10 +1970,44 @@
             }
         }
 
-        // Feature 2: AI Art Critic
-        async function describeSceneWithAI() {
-            if (!apiKey && !promptForApiKey()) return; // Require API Key
+        // Feature 2: AI Scene Generator (Image)
+        async function generateSceneFromImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
 
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const base64Image = e.target.result;
+                const mimeType = file.type;
+
+                const btn = document.getElementById('btn-ai-image');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = "✨ Analyzing...";
+                btn.disabled = true;
+
+                const prompt = `Act as an expert Lego master and 3D voxel artist. Analyze the provided image and recreate its main subject or scene. 
+                Instead of abstract shapes, strictly construct literal, recognizable objects by combining and squishing primitive blocks together. 
+                Generate exactly 20 to 40 primitive blocks that evoke this image visually.
+                They will be placed inside a 15x15x15 boundary. Utilize extreme stretching/squishing (scales) to create flat boards, tall poles, or wide bases. Be creative with overlapping geometry and colors/materials matching the image.`;
+
+                try {
+                    let responseText = await callGemini(prompt, true, sceneGenerationSchema, base64Image, mimeType);
+                    responseText = responseText.replace(/```json\n?/gi, '').replace(/```/g, '').trim();
+                    const objects = JSON.parse(responseText);
+                    buildObjectsFromJSON(objects);
+                } catch (err) {
+                     showModal("Failed to generate scene from image:\n" + err.message, "Error");
+                } finally {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    event.target.value = ''; // Reset file input so you can re-upload the same file if needed
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Feature 3: AI Art Critic
+        async function describeSceneWithAI() {
             const sceneObjects = interactableObjects.filter(o => o !== lightGroup && o !== lightTargetMesh);
             if (sceneObjects.length === 0) return showModal("Add some objects to the scene first so I have something to critique!", "Empty Canvas");
 
@@ -1906,42 +2056,81 @@
                 // Ignore Cross-Origin security errors from strict iframes
             }
 
-            const index = url.indexOf('#scene=');
+            const index = url.indexOf('#');
             if (index !== -1) {
-                return url.substring(index + 7);
+                return url.substring(index + 1); // Return the entire hash string without the #
             }
             return null;
         }
 
-        function loadSceneFromHash() {
+        async function loadSceneFromHash() {
             try {
-                let compressed = getSceneHash();
-                if (!compressed) return false;
+                let hashData = getSceneHash();
+                if (!hashData) return false;
                 
-                // Fix common URL encoding issues where '+' gets stripped into ' ' by browser address bars
-                compressed = compressed.replace(/ /g, '+'); 
-                
-                const stateStr = LZString.decompressFromEncodedURIComponent(compressed);
-                if (stateStr) {
-                    const state = JSON.parse(stateStr);
-                    if (state.light && state.objects) {
-                        loadSceneState(state);
-                        return true;
+                // Handle Database Short Links (#id=3dlab_xyz)
+                if (hashData.startsWith('id=')) {
+                    const id = hashData.substring(3);
+                    let record = null;
+
+                    // Use secure keyname search for GUID links
+                    const response = await fetch(`https://openapi.nocodebackend.com/search/keyval?Instance=56082_shared`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer 0386f7da07d970e455c4c5e07bb07340b8f9e7738424a9e4f88f96b4291ebd4f'
+                        },
+                        body: JSON.stringify({ keyname: id })
+                    });
+                    
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        throw new Error(`API Error (${response.status}): ${errText}`);
+                    }
+                    
+                    const result = await response.json();
+                    if (result && result.data) {
+                        if (Array.isArray(result.data) && result.data.length > 0) record = result.data[0];
+                        else if (!Array.isArray(result.data)) record = result.data;
+                    }
+                    
+                    if (record && record.jval) {
+                        const state = JSON.parse(record.jval);
+                        if (state.light && state.objects) {
+                            loadSceneState(state);
+                            return true;
+                        }
+                    } else {
+                        throw new Error("Short link data not found or expired.");
+                    }
+                } 
+                // Handle LZ-String Compressed Links (#scene=xyz...)
+                else if (hashData.startsWith('scene=')) {
+                    let compressed = hashData.substring(6).replace(/ /g, '+'); 
+                    const stateStr = LZString.decompressFromEncodedURIComponent(compressed);
+                    if (stateStr) {
+                        const state = JSON.parse(stateStr);
+                        if (state.light && state.objects) {
+                            loadSceneState(state);
+                            return true;
+                        }
                     }
                 }
             } catch(e) {
                 console.error("Failed to load scene from URL", e);
+                showModal("Failed to load scene from URL link. It may be corrupted or expired.", "Load Error");
             }
             return false;
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             // Check for mobile screens to collapse UI by default
             if (window.innerWidth < 640) {
                 toggleUI(false);
             }
 
-            if (!loadSceneFromHash()) {
+            const loaded = await loadSceneFromHash();
+            if (!loaded) {
                 // Add some initial objects to start if no URL hash exists or it was invalid
                 addObject('plane');
                 addObject('cube');
@@ -1950,8 +2139,8 @@
         });
 
         // Listen for hash changes in case the user manually pastes a link while the app is open
-        window.addEventListener('hashchange', () => {
-            loadSceneFromHash();
+        window.addEventListener('hashchange', async () => {
+            await loadSceneFromHash();
         });
 
         // --- 8. Animation Loop ---
